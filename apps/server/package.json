@@ -1,0 +1,38 @@
+{
+  "name": "@arcane/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./trpc": "./src/trpc/router.ts"
+  },
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "seed": "bun run src/db/seed.ts",
+    "mcp": "bun run src/mcp/stdio.ts",
+    "prove:cctp": "bun run scripts/bridge-arc-to-base.ts",
+    "gateway:deposit": "bun run scripts/gateway-deposit.ts",
+    "prove:gateway": "bun run scripts/gateway-spend-arc-to-base.ts",
+    "gateway:balance": "bun run scripts/gateway-balance.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@arcane/shared": "workspace:*",
+    "@circle-fin/adapter-viem-v2": "^1.11.2",
+    "@circle-fin/app-kit": "^1.7.0",
+    "@hono/trpc-server": "^0.3.4",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@trpc/server": "^11.0.0",
+    "hono": "^4.6.14",
+    "viem": "^2.21.55",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

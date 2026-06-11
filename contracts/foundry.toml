@@ -1,0 +1,25 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+solc = "0.8.24"
+evm_version = "prague"
+optimizer = true
+optimizer_runs = 1_000_000
+via_ir = false
+bytecode_hash = "none"
+fs_permissions = [{ access = "read", path = "./" }]
+
+# Arc Testnet uses USDC-denominated gas; standard EIP-1559 (type-2) txns only.
+# No EIP-4844 blobs. PREVRANDAO always returns 0 on Arc — never use it for
+# randomness (we use deterministic round-robin solver selection off-chain).
+
+[rpc_endpoints]
+arc_testnet = "${ARC_TESTNET_RPC_URL}"
+
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = true

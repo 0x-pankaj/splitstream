@@ -1,0 +1,40 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "globalEnv": [
+    "NODE_ENV",
+    "ARC_TESTNET_RPC_URL",
+    "ARC_TESTNET_WS_URL",
+    "RELAYER_PRIVATE_KEY",
+    "VAULT_ADDRESS",
+    "COMPLIANCE_GUARD_ADDRESS",
+    "MOCK_USYC_TELLER_ADDRESS",
+    "PLATFORM_FEE_WALLET",
+    "CIRCLE_KIT_KEY",
+    "INSTANT_PATH_THRESHOLD_USDC",
+    "DATABASE_PATH",
+    "PORT",
+    "NEXT_PUBLIC_API_URL"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "lint": {},
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}
