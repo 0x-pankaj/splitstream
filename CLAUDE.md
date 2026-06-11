@@ -1,106 +1,176 @@
-# Engineering Specification: Arcane Treasury (Arc L1 B2B SaaS)
+# SplitStream — per-piece creator monetization with instant cross-chain revenue splitting, on Circle Arc L1
 
-You are a Principal Software Engineer specializing in institutional payment engines, cryptographic finality, and Circle's stablecoin-native financial infrastructure. You are tasked with implementing the full, production-ready codebase for **Arcane Treasury**—a B2B SaaS corporate treasury and programmatic hybrid payout layer built natively on Circle's Arc L1 blockchain.
+> **Read this first, every session.** This file is the durable project brief. The
+> live, evolving build status lives in **`SPLITSTREAM_PLAN.md`** — read that
+> second to know exactly what is done and what to do next. The original treasury
+> engine spec is preserved in `CLAUDE.arcane-treasury.md` for reference.
 
-## 1. System Guardrails & Execution Constraints
-- **Absolute Completeness:** Write full, production-grade, human-scannable implementations. Do not use truncated blocks, placeholders (`...`), short-circuit returns, or `// TODO` comments.
-- **Strict Isolated Footprint:** Maintain a rigid boundary between the on-chain smart contract environment (`/contracts`) and the off-chain TypeScript runtime engine (`/server`).
-- **The Arc Precision Duality:** Inside the EVM layer of Arc L1, native gas accounting uses **18 decimals** of precision. However, standard interaction with the Native USDC system contract (`0x3600000000000000000000000000000000000000`) and target ecosystem bridge endpoints uses **6 decimals**. Never conflate these precisions during transfers or state mutations.
-- **Architectural Routing Mandate:** All transactions under a configurable threshold (e.g., $5,000) must route through the off-chain **Intent-Based Solver Mesh** for instantaneous sub-500ms clearing. Any transaction above this limit must bypass the mesh and settle natively via asynchronous **Circle CCTP / Bridge Kit** to ensure absolute cryptographic settlement safety for large capital blocks.
-
----
-
-## 2. On-Chain Smart Contract Architecture (`/contracts`)
-
-Initialize an enterprise-grade Foundry suite. Target Solidity compiler version `^0.8.24` utilizing advanced EVM optimization flags compatible with the Circle Arc Testnet (Chain ID: `5042002`).
-
-### 2.1 `ArcaneTreasuryVault.sol`
-A robust, multi-tenant corporate vault contract. Because this runs natively on Arc L1, all transaction gas overhead is settled automatically in USDC.
-- **State Framework & Security:**
-  - Inherit OpenZeppelin's `Ownable2Step` and `ReentrancyGuard`.
-  - Maintain a ledger tracking segregated enterprise balances: `mapping(address => uint256) public tenantBalances;` (6 decimals).
-  - Maintain an explicit registry of institutional market-makers: `mapping(address => bool) public whitelistedSolvers;`
-- **Core Methods:**
-  - `depositUSDC(uint256 amount)`: Pulls application-grade USDC from the tenant using `transferFrom` into the vault. Updates `tenantBalances`.
-  - `executeIntent(bytes32 intentId, address tenant, address destinationSolver, uint256 grossAmount, uint256 networkFee, uint256 convenienceFee)`: Called strictly by the platform's trusted relayer key. Deducts the complete aggregate sum (`grossAmount + networkFee + convenienceFee`) from the tenant’s balance.
-    - Credits `grossAmount` directly to the `destinationSolver`'s balance within the system contract or releases an instant internal push transfer.
-    - Credits `convenienceFee` directly to the SaaS protocol platform fee wallet.
-    - Locks `networkFee` inside the contract pool to fund ongoing autonomous relayer operations.
-  - `sweepToYield(uint256 amount)`: Interfaces directly with the native Circle tokenized treasury yield fund (**USYC**) Teller on Arc L1. Programmatically deposits idle vault USDC to capture low-risk compliance-cleared yield.
-  - `unwindYield(uint256 amount)`: Triggers immediate redemption of USYC shares back into liquid application USDC to satisfy immediate bulk payout queues.
-
-### 2.2 `ArcaneComplianceGuard.sol`
-A defensive, programmable risk-management circuit breaker contract.
-- Tracks sliding rolling 24-hour transaction volumes per corporate tenant.
-- Enforces an immutable `dailyVolumeLimit` set by enterprise compliance profiles. If a batch execution causes a tenant to breach this threshold, the contract must revert using a custom error: `error VelocityLimitExceeded()`.
-- Implements an explicit `whitelistedRecipients` address registry per tenant to block non-vetted or sanctioned target addresses at the smart contract level.
+You are a Principal Engineer building **SplitStream** for the **Lepton Agents
+Hackathon** (Canteen × Circle × Arc, June 15–29 2026). SplitStream is a pivot of
+a proven corporate-treasury engine (`arcane-treasury`) into a **creator
+monetization product**. The settlement engine is reused as-is; the product
+surface on top is new.
 
 ---
 
-## 3. Backend Engine & Circle API Integration Layer (`/server`)
+## 1. The product in one sentence
 
-Implement a highly structured, enterprise-grade TypeScript server using Hone trpc bun/pnpm whatever you thought is perfect 
+**A reader (human or AI agent) pays a few cents to unlock a single article /
+photo / song, and that payment is instantly split across every contributor —
+each paid on the chain they prefer — settling in under 500ms on Arc.**
 
-### 3.1 REST API Pipeline (`src/routes/payouts.ts`)
-- Expose a public enterprise gateway endpoint: `POST /api/v1/payouts/bulk`.
-- Secure access using scoped, role-based API keys (`x-api-key`) verified against a secure database cache.
-- Enforce rigid validation on incoming payroll packets using **Zod**:
-```typescript
-  const PayoutSchema = z.object({
-    tenantId: z.string().uuid(),
-    payouts: z.array(z.object({
-      recipientAddress: z.string(),
-      targetChain: z.enum(['solana', 'base', 'arbitrum', 'ethereum']),
-      amountUSDC: z.string(),
-      currencyCode: z.enum(['USD', 'EUR']).default('USD')
-    }))
-  });
-Execution Workflow Engine:
+No subscription. No signup or KYC for the reader. Pay-per-piece.
 
-Parse the incoming payload and perform an asynchronous eth_call to ArcaneComplianceGuard to verify velocity limits and recipient whitelisting.
+### Why this wins the hackathon
 
-For payouts targeting European recipients requiring local currencies (currencyCode: 'EUR'), programmatically dispatch an RFQ call to the Arc L1 StableFX API module to lock in the USDC -> EURC currency conversion spread on-chain before transaction serialization.
+The event is judged 30% **Agentic Sophistication** + 30% **Traction** + 20%
+Circle usage + 20% Innovation. Our edges:
 
-3.2 The Hybrid Payout & Solver Orchestrator (src/services/solverMesh.ts)
-Maintain active WebSocket state pools connecting the backend to vetted, institutional market makers ("Solvers").
+- **Traction (the deciding metric):** the RFB's metric is *"creators earning ·
+  total creator payouts."* Every unlock is a real payment we can drive and show
+  on a live counter. We generate volume ourselves (seeded creators + a buyer
+  agent + a public link) — we never depend on outside adopters showing up.
+- **Agentic:** an AI reading-agent that autonomously consumes content and pays
+  each creator per piece, with on-chain spend caps. Agent-pays-creator and
+  agent-pays-agent.
+- **Circle usage:** already wired — Arc native-USDC gas, Circle Gateway instant
+  path, CCTP whale path. Proven on Arc Testnet.
+- **Innovation:** **cross-chain revenue splitting** is our moat. One $0.05
+  payment fans out to writer (Base), editor (Arbitrum), photographer (Solana),
+  instantly, no gas tokens. No other hackathon team's scaffold does this; ours
+  does it natively because the engine was born a multi-recipient cross-chain
+  payout splitter.
 
-For items routed to the instant path: Broadcast the payment intents to the Solver mesh.
+### Target RFB
 
-The designated Solver instantly fulfills the target payout using their localized hot-wallet pools directly on the destination chain (e.g., transmitting native Solana USDC to the creator).
+> *"Monetize a single article, photo, or song, without forcing readers into a
+> monthly commitment."* Example builds we map to: **SplitStream** (auto-split to
+> every contributor — our headline), ReadPay (pay-per-article), TipJar (instant
+> tips), NewsWallet (earn per reader), AI reading lists that auto-pay creators.
 
-The Solver signs and submits the target-chain execution receipt hash back to your API backend.
+---
 
-The service validates the transaction state against an independent RPC node on that target chain. Upon successful cryptographic confirmation, it submits a signed payload to Arc L1 executing executeIntent() on ArcaneTreasuryVault.sol, reimbursing the Solver's pool natively on the L1.
+## 2. Hard rules (inherited from the engine — do not violate)
 
-Asynchronously dispatch a background Circle CCTP / Bridge Kit execution loop to slowly rebalance, burn, and replenish the Solvers' global remote chain hot-wallet reserves over time.
+- **Absolute completeness.** Full, production-grade, human-scannable code. No
+  `...`, no placeholders, no `// TODO`, no truncation.
+- **The Arc Precision Duality.** USDC on Arc is one balance with two interfaces:
+  native gas = **18 decimals**, ERC-20 (`0x3600…0000`) = **6 decimals**. ALL
+  value/accounting math uses **6dp base units as `bigint`**. Only cross to 18dp
+  through the explicit helpers in `packages/shared/src/decimals.ts`. Never mix
+  precisions implicitly.
+- **Isolated footprint.** On-chain (`/contracts`, Solidity ^0.8.24) and off-chain
+  (`/apps`, `/packages`, TypeScript) stay strictly separated.
+- **Hybrid routing.** Payouts `< $5,000` (configurable `INSTANT_PATH_THRESHOLD_USDC`)
+  route the **instant path** (Gateway-backed solver mesh, sub-500ms). `≥ $5,000`
+  route the **whale path** (CCTP V2). Per-piece nanopayments are always tiny, so
+  splits ride the instant path — exactly the rail the hackathon rewards.
+- **No `Math.random()` / `Date.now()` at import time.** Pass `now` in; engine
+  functions already take a `now = Date.now()` parameter.
 
-4. Testing Protocols & Circle Grant Documentation
-Foundry Testing (/test): Write explicit Forge unit tests mapping out complete vault life cycles: deposit flows, multi-tenant accounting isolation, mocking a USYC Teller contract behavior, and forcing compliance failures when velocity caps are simulated to breach.
+---
 
-Backend Testing (/server/__tests__): Implement comprehensive integration tests using Vitest to mock the Circle Developer API endpoints (StableFX quote structures, CCTP attestation relays, and Gateway webhook ingestion).
-
-Ecosystem Grant Submission (/GRANT_PROPOSAL.md): Generate a publication-ready markdown file engineered for the Circle Arc Grant Review Board detailing:
-
-The Enterprise Friction: How fragmented gas tracking and multichain accounting keep Web2 corporate CFOs off-chain.
-
-The Arc Integration Matrix: Technical breakdown of how Arcane Treasury maps directly onto Arc L1 Native USDC Gas, Circle Gateway, CCTP, StableFX, and USYC.
-
-Developer Experience Feedback: A detailed analysis of integrating the Arc L1 double-decimal structure alongside actionable recommendations for improving Circle's Anthropic Claude Agent Stack integrations.
-
-
-Feel free to use MonoRepo turborepo if here possible as it more managed so i thought of. 
-
+## 3. Architecture (monorepo: pnpm workspaces + Turbo)
 
 ```
-Final project we want 
-
-Multi-Chain "Invisible Treasury" for Global Platforms (B2B SaaS)
-
-The Concept: A plug-and-play corporate treasury and payout management engine for global Web2 companies (like marketplaces, gig-economy platforms, or SaaS providers) that abstracts away all blockchain mechanics.
-
-How it leverages Arc: Large enterprises struggle to adopt crypto because of gas token volatility and cross-chain fragmentation. By utilizing Arc, your SaaS platform allows companies to open corporate treasury accounts where all fees are strictly paid in USDC.
-
-The Product: Your startup provides an API that hooks into a platform's backend. When a platform needs to pay out 10,000 global creators or suppliers across Ethereum, Base, Solana, and Arbitrum, they fund your smart contract on Arc once. Your platform uses Arc Gateway / CCTP to split, clear, and instantly teleport those funds across multiple target chains in under 500 milliseconds.
-
-Why it wins: It completely solves the CFO's accounting nightmare (no holding native gas assets like ETH or SOL) and offers programmatic, sub-second automated payouts
+splitstream/
+├── contracts/                    Foundry. Live on Arc Testnet (chain 5042002).
+│   └── src/ ArcaneTreasuryVault.sol, ArcaneComplianceGuard.sol   ← REUSE as-is
+├── packages/
+│   ├── shared/                   Zod schemas, Arc addresses, decimals, routing,
+│   │   └── src/                  fee math, domain types.
+│   │       ├── decimals.ts       6dp/18dp duality helpers (parseUsdc6/formatUsdc6)
+│   │       ├── routing.ts        planPayout / computeFees / totalDebit6
+│   │       ├── types.ts          PayoutItem, RoutedPayout, AuditEntry, AgentWallet
+│   │       ├── schemas.ts        BulkPayoutSchema + SplitStream piece schemas
+│   │       ├── splits.ts         ★ NEW: Piece/Contributor types + computeSplit()
+│   │       └── index.ts          barrel export
+│   └── sdk/                      thin TS client (extend into the embed widget)
+└── apps/
+    ├── server/                   Bun + Hono + tRPC backend (:8787)
+    │   └── src/
+    │       ├── index.ts          Hono app; mounts REST + tRPC; seeds demo world
+    │       ├── config.ts         env → live/mirror mode switch
+    │       ├── db/store.ts       in-memory store (+ pieces) → snapshots to sqlite
+    │       ├── db/seed.ts        demo world (+ a demo piece)
+    │       ├── routes/
+    │       │   ├── payouts.ts    POST /api/v1/payouts/bulk (engine, reused)
+    │       │   ├── tenants.ts    onboarding, payee mgmt, funding
+    │       │   └── pieces.ts     ★ NEW: create/list/get/pay pieces
+    │       ├── services/
+    │       │   ├── payoutEngine.ts   processBulkPayout — THE settlement core
+    │       │   ├── splitEngine.ts    ★ NEW: payForPiece — split→bulk payout
+    │       │   ├── gatewayUnifiedBalance.ts  real Circle Gateway spend (LIVE_GATEWAY)
+    │       │   ├── bridgeCctp.ts      real CCTP burn→mint (LIVE_BRIDGE)
+    │       │   ├── solverMesh.ts      instant-path solver selection
+    │       │   ├── agentTreasury.ts   per-agent spend caps (reused for reader-agent)
+    │       │   └── …                  compliance, vault, stablefx, recipients
+    │       └── mcp/server.ts     MCP tools for agents (extend: pay_for_piece)
+    └── web/                      Next.js. Repurpose into the creator storefront +
+                                  live traction counter + embed widget.
 ```
+
+### The one insight that makes everything reuse cleanly
+
+**A piece payment IS a bulk payout.** The piece's contributors become the payout
+recipients; their `splitBps` become their share amounts. So `payForPiece()` just
+builds a `BulkPayoutInput` from the piece and calls the existing, proven
+`processBulkPayout()`. Cross-chain splitting, compliance, audit log, Arc
+settlement, and the instant/whale routing all come for free.
+
+---
+
+## 4. Key flows
+
+### Create a piece (publisher)
+`POST /api/v1/pieces` (x-api-key) → validate `CreatePieceSchema` (contributors'
+`splitBps` must sum to 10000) → auto-whitelist each contributor address on the
+publisher tenant → store the piece.
+
+### Unlock a piece (reader — human or agent)
+`POST /api/v1/pieces/:id/pay` → `payForPiece()`:
+1. `computeSplit(price6, contributors)` → per-contributor 6dp shares (remainder
+   to the largest share so the sum is exact).
+2. Credit the publisher tenant's vault balance for the reader's payment (mirror
+   mode models the reader's funds landing in the vault; live mode = real deposit).
+3. Build `BulkPayoutInput` (contributors as recipients) → `processBulkPayout()`
+   splits + settles each contributor on their chain via the instant path.
+4. Record the unlock (`unlocks++`, `totalPaid6 +=`) for the traction counter.
+5. Return the unlock receipt + per-contributor settlement (tx hashes, latency).
+
+### Live vs mirror mode
+- **Mirror (default, no `.env`):** in-memory ledger, simulated receipts. Fully
+  demoable with zero keys. Use for tests and local dev.
+- **Live (`RELAYER_PRIVATE_KEY` + `VAULT_ADDRESS` + `LIVE_GATEWAY=true`):** real
+  Arc Testnet `executeIntent` + real Circle Gateway settlement.
+
+---
+
+## 5. Working commands
+
+```bash
+pnpm install                      # from repo root
+pnpm --filter @arcane/server dev  # backend on :8787  (mirror mode)
+pnpm --filter @arcane/web dev     # storefront on :3000
+pnpm test                         # Vitest (server) — keep green
+pnpm typecheck                    # tsc across the workspace — keep clean
+cd contracts && forge test -vvv   # 28 Foundry tests
+```
+
+Demo API key (seeded): `arc_test_sk_demo_0001`.
+
+---
+
+## 6. Discipline that wins this hackathon
+
+1. **Traction is generated, not awaited.** Always have a live URL taking real
+   (tiny) payments. Seed creators, run the buyer agent, share the link. Never
+   build a feature whose traction depends on strangers integrating.
+2. **Lead with the split.** Single-piece unlock + tipping are table stakes;
+   cross-chain auto-split is the differentiator. Every demo shows the fan-out.
+3. **Keep mirror mode working with zero keys** so the demo never depends on a
+   funded wallet. Light up live rails for the *proof*, not the *demo path*.
+4. **Keep `pnpm test` and `pnpm typecheck` green** before every commit.
+
+When you finish a unit of work, update `SPLITSTREAM_PLAN.md` (the build-state
+section) so the next session knows exactly where to resume.

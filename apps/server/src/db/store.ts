@@ -11,6 +11,9 @@ import { randomBytes, randomUUID } from "node:crypto";
 import type {
   AgentWallet,
   AuditEntry,
+  Contributor,
+  Piece,
+  PieceKind,
   RoutedPayout,
   Solver,
   TargetChain,
@@ -56,6 +59,9 @@ export class Store {
   solvers: Solver[] = [];
   audit: AuditEntry[] = [];
   intents = new Map<string, RoutedPayout & { status: string }>();
+
+  /** SplitStream: monetizable content pieces, keyed by piece id. */
+  pieces = new Map<string, Piece>();
 
   /** Simulated per-tenant vault balances (used when on-chain is disabled). */
   tenantBalances6 = new Map<string, bigint>();
@@ -225,6 +231,54 @@ export class Store {
 
   solversForChain(chain: TargetChain): Solver[] {
     return this.solvers.filter((s) => s.online && s.supportedChains.includes(chain));
+  }
+
+  // ── Pieces (SplitStream) ─────────────────────────────────────────────────────
+
+  /** Register a new piece. Accepts an explicit id (for deterministic seeds). */
+  createPiece(input: {
+    id?: string;
+    publisherTenantId: string;
+    title: string;
+    kind: PieceKind;
+    price6: bigint;
+    contributors: Contributor[];
+    createdAt?: string;
+  }): Piece {
+    const piece: Piece = {
+      id: input.id ?? randomUUID(),
+      publisherTenantId: input.publisherTenantId,
+      title: input.title,
+      kind: input.kind,
+      price6: input.price6,
+      contributors: input.contributors,
+      createdAt: input.createdAt ?? new Date().toISOString(),
+      unlocks: 0,
+      totalPaid6: 0n,
+    };
+    this.pieces.set(piece.id, piece);
+    return piece;
+  }
+
+  getPiece(id: string): Piece | undefined {
+    return this.pieces.get(id);
+  }
+
+  /** All pieces, newest first; optionally scoped to one publisher tenant. */
+  listPieces(publisherTenantId?: string): Piece[] {
+    const all = [...this.pieces.values()];
+    const scoped = publisherTenantId
+      ? all.filter((p) => p.publisherTenantId === publisherTenantId)
+      : all;
+    return scoped.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }
+
+  /** Record a paid unlock against a piece's running traction stats. */
+  recordUnlock(pieceId: string, price6: bigint): void {
+    const piece = this.pieces.get(pieceId);
+    if (!piece) return;
+    piece.unlocks += 1;
+    piece.totalPaid6 += price6;
   }
 
   // ── Audit log ────────────────────────────────────────────────────────────────

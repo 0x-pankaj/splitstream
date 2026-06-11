@@ -112,3 +112,58 @@ export const RecipientInputSchema = z
   });
 
 export type RecipientInput = z.infer<typeof RecipientInputSchema>;
+
+// ── SplitStream: pieces & per-piece payments ────────────────────────────────
+
+export const PIECE_KINDS = ["article", "photo", "song", "podcast"] as const;
+
+/** One contributor line: role, payout address, chain, and basis-point share. */
+export const ContributorSchema = z
+  .object({
+    role: z.string().min(1).max(60),
+    address: z.string().min(1),
+    targetChain: z.enum(TARGET_CHAINS),
+    splitBps: z.number().int().min(1).max(10_000),
+  })
+  .superRefine((c, ctx) => {
+    if (!isAddressValidForChain(c.address, c.targetChain)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["address"],
+        message: `address is not valid for chain "${c.targetChain}"`,
+      });
+    }
+  });
+
+export type ContributorInput = z.infer<typeof ContributorSchema>;
+
+/** A publisher registers a monetizable piece with a price and a contributor split. */
+export const CreatePieceSchema = z
+  .object({
+    title: z.string().min(1).max(200),
+    kind: z.enum(PIECE_KINDS),
+    priceUSDC: usdcAmount,
+    contributors: z.array(ContributorSchema).min(1).max(20),
+  })
+  .superRefine((piece, ctx) => {
+    const sum = piece.contributors.reduce((acc, c) => acc + c.splitBps, 0);
+    if (sum !== 10_000) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["contributors"],
+        message: `contributor splitBps must sum to 10000 (100%); got ${sum}`,
+      });
+    }
+  });
+
+export type CreatePieceInput = z.infer<typeof CreatePieceSchema>;
+
+/** A reader (human or agent) unlocks a piece. Body is optional metadata. */
+export const PayPieceSchema = z.object({
+  /** Optional identifier for the payer (wallet / agent id) — for receipts. */
+  payer: z.string().max(128).optional(),
+  /** Optional scoped agent wallet authorizing this unlock (agentic path). */
+  agentId: z.string().min(1).max(128).optional(),
+});
+
+export type PayPieceInput = z.infer<typeof PayPieceSchema>;

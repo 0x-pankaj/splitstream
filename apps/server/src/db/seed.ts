@@ -14,6 +14,7 @@ export const DEMO_TENANT_ID = "00000000-0000-4000-8000-000000000001";
 export const DEMO_TENANT_ADDRESS = "0xAcME00000000000000000000000000000000Cafe" as const;
 export const DEMO_API_KEY = "arc_test_sk_demo_0001";
 export const DEMO_AGENT_ID = "agent-adbuyer-01";
+export const DEMO_PIECE_ID = "piece-arc-frontier-001";
 
 /** Recipients the demo tenant has vetted/whitelisted. */
 export const DEMO_RECIPIENTS: Array<{ address: string; chain: TargetChain }> = [
@@ -125,6 +126,23 @@ export function seedDemo(store: Store, opts: SeedOptions = {}): void {
     },
     spend: { daily6: 0n, weekly6: 0n, monthly6: 0n },
     enabled: true,
+    createdAt: "2026-06-01T00:00:00.000Z",
+  });
+
+  // SplitStream: a demo piece whose $0.05 unlock fans out across three chains.
+  // Contributor addresses reuse the already-whitelisted demo recipients so the
+  // unlock path's compliance precheck passes out of the box.
+  store.createPiece({
+    id: DEMO_PIECE_ID,
+    publisherTenantId: DEMO_TENANT_ID,
+    title: "The Stablecoin Frontier: Inside Arc L1",
+    kind: "article",
+    price6: parseUsdc6("0.05"),
+    contributors: [
+      { role: "writer", address: "0x1111111111111111111111111111111111111111", targetChain: "base", splitBps: 6000 },
+      { role: "editor", address: "0x2222222222222222222222222222222222222222", targetChain: "arbitrum", splitBps: 2500 },
+      { role: "photographer", address: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin", targetChain: "solana", splitBps: 1500 },
+    ],
     createdAt: "2026-06-01T00:00:00.000Z",
   });
 }

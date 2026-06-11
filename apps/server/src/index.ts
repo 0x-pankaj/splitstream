@@ -18,6 +18,7 @@ import { seedDemo, DEMO_API_KEY } from "./db/seed.js";
 import { initPersistence } from "./db/persistence.js";
 import { payoutRoutes } from "./routes/payouts.js";
 import { tenantRoutes } from "./routes/tenants.js";
+import { pieceRoutes } from "./routes/pieces.js";
 import { appRouter } from "./trpc/router.js";
 import { makeContextFactory } from "./trpc/context.js";
 import { relayerAccount } from "./chain/arc.js";
@@ -50,6 +51,8 @@ app.get("/health", (c) =>
 
 // REST enterprise gateway.
 app.route("/api/v1/payouts", payoutRoutes(store));
+// SplitStream: per-piece creator monetization (create / browse / unlock).
+app.route("/api/v1/pieces", pieceRoutes(store));
 // Onboarding, payee management, and funding.
 app.route("/api/v1", tenantRoutes(store));
 
