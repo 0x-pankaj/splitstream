@@ -108,26 +108,39 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
 
 ## Build State (UPDATE THIS LAST, EVERY SESSION)
 
-**Last updated:** session 1.
+**Last updated:** session 2 (Phases 2–4).
 
 **Done:**
-- Phase 0 complete (fork, git, docs).
-- **Phase 1 complete** — backend split flow shipped & verified:
-  - `splits.ts` (types + `computeSplit`), schemas, store pieces, `splitEngine.ts`
-    (`payForPiece`), `routes/pieces.ts`, wired into `index.ts`, demo piece seeded.
-  - `pnpm typecheck` clean (6/6 packages); `pnpm test` green (37/37).
-  - HTTP smoke test passed in mirror mode: a $0.05 unlock split to writer (Base),
-    editor (Arbitrum), photographer (Solana), all settled instant path <500ms.
+- Phase 0 (fork, git, docs), **Phase 1** (backend split flow).
+- **Phase 2 complete** — traction surface: tRPC `pieces.{list,get,unlock}` +
+  `traction.stats` (public); web storefront at `/` (catalog, unlock, cross-chain
+  fan-out reveal, live creator-payout counter), shareable `/piece/[id]`, dashboard
+  at `/dashboard`. Web builds clean (4 routes). Counter verified climbing $0→$0.05.
+- **Phase 3 complete** — agentic layer: `readingAgent.ts` (heuristic default +
+  optional Claude `claude-opus-4-8` structured-output decision, graceful
+  fallback; budget/caps enforced in code), tRPC `agent.read`, MCP tools
+  `list_pieces` + `pay_for_piece`, web `AgentReader` panel. Verified: agent
+  autonomously unlocked a piece and paid $0.05 to creators.
+- **Phase 4 wired + documented** — `scripts/prove-split.ts` (`pnpm --filter
+  @arcane/server prove:split`) runs one real unlock through the live engine with
+  explorer links; `PHASE4_LIVE_PROOF.md` documents the funded prerequisites. The
+  live path is real (submits a real `executeIntent`), not simulated. The funded
+  on-chain run (deposit + on-chain whitelist + `LIVE_GATEWAY`) is the user's step.
+- **Tests: 40/40 green. Typecheck clean across all packages. Web builds clean.**
 
-**Next session, do this first:**
-1. `pnpm install` if node_modules is missing, then `pnpm typecheck` + `pnpm test`
-   to confirm a green baseline.
-2. **Start Phase 2 — traction surface.** Repurpose `apps/web` into the creator
-   storefront: list pieces (GET /api/v1/pieces), an "Unlock for $X" button hitting
-   POST /pieces/:id/pay, and a post-unlock reveal of the cross-chain fan-out.
-   Add a **live traction counter** (total unlocks, total creator payouts) — add a
-   tRPC procedure aggregating `store.pieces` (sum `unlocks`, `totalPaid6`).
-3. Then Phase 3 (reading-agent + MCP `pay_for_piece` tool).
+**Earlier (session 1) detail:**
+- `splits.ts` (types + `computeSplit`), schemas, store pieces, `splitEngine.ts`
+  (`payForPiece`), `routes/pieces.ts`, demo piece seeded.
+
+**Next session, do this first (Phase 5 — submission polish):**
+1. `pnpm install` if needed, then `pnpm typecheck` + `pnpm test` (expect 40/40).
+2. Rewrite root `README.md` for SplitStream (story, run steps, live URL, traction).
+3. Optional cosmetic: rename `@arcane/*` → `@splitstream/*` (touches every import —
+   do LAST). Update `GRANT_PROPOSAL.md` / form answers.
+4. Record the 3-min demo: human unlocks → fan-out → agent auto-pays → counter.
+5. For real traction: set `ANTHROPIC_API_KEY` so the agent runs in `llm` mode,
+   deploy the storefront, share the link, run `prove:split` against a funded vault
+   for the on-chain proof (PHASE4_LIVE_PROOF.md).
 
 **Important runtime notes / gotchas:**
 - **`apps/server/.env` forces LIVE Arc mode** (it has `RELAYER_PRIVATE_KEY` +
