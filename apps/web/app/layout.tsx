@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Arcane Treasury — CFO Console",
+  title: "SplitStream — pay-per-piece, split across chains",
   description:
-    "Stripe for cross-chain payouts, built natively on Circle's Arc L1. Fund once in USDC; pay thousands of creators across chains with zero gas tokens.",
+    "Unlock a single article, photo, or song for a few cents — and watch the payment split instantly across every contributor, each paid on their own chain, in under 500ms on Circle's Arc L1.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -8,9 +8,26 @@ import {
   formatUsdc6,
   type AgentWallet,
   type AuditEntry,
+  type Piece,
   type Solver,
   type TargetChain,
 } from "@arcane/shared";
+
+/** Serialize a content piece for the storefront (bigint → display strings). */
+export function serializePiece(p: Piece) {
+  return {
+    id: p.id,
+    publisherTenantId: p.publisherTenantId,
+    title: p.title,
+    kind: p.kind,
+    price: formatUsdc6(p.price6),
+    contributors: p.contributors,
+    chains: [...new Set(p.contributors.map((c) => c.targetChain))],
+    createdAt: p.createdAt,
+    unlocks: p.unlocks,
+    totalPaid: formatUsdc6(p.totalPaid6),
+  };
+}
 
 export function serializeAudit(e: AuditEntry) {
   return {

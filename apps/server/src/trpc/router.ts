@@ -22,12 +22,13 @@ import {
   protectedProcedure,
   toTRPCError,
 } from "./context.js";
-import { serializeAgent, serializeAudit, serializeSolver } from "./serialize.js";
+import { serializeAgent, serializeAudit, serializePiece, serializeSolver } from "./serialize.js";
 import { readTenantBalance6 } from "../services/vault.js";
 import { processBulkPayout } from "../services/payoutEngine.js";
 import { createAgentWallet, setAgentEnabled } from "../services/agentTreasury.js";
 import { signupTenant } from "../services/onboarding.js";
 import { addTenantRecipient, removeTenantRecipient } from "../services/recipients.js";
+import { payForPiece } from "../services/splitEngine.js";
 
 /** Arc L1 native USDC system contract (6dp ERC-20 view). */
 const ARC_USDC = "0x3600000000000000000000000000000000000000";
@@ -294,6 +295,89 @@ export const appRouter = router({
           throw toTRPCError(err);
         }
       }),
+  }),
+
+  /**
+   * SplitStream creator storefront — all public so a shared link can browse and
+   * unlock pieces without an API key. Readers don't authenticate; they pay.
+   */
+  pieces: router({
+    list: publicProcedure.query(({ ctx }) =>
+      ctx.store.listPieces().map(serializePiece),
+    ),
+
+    get: publicProcedure
+      .input(z.object({ pieceId: z.string().min(1) }))
+      .query(({ ctx, input }) => {
+        const piece = ctx.store.getPiece(input.pieceId);
+        return piece ? serializePiece(piece) : null;
+      }),
+
+    /** Unlock (pay for) a piece — fans the price out to every contributor. */
+    unlock: publicProcedure
+      .input(
+        z.object({
+          pieceId: z.string().min(1),
+          payer: z.string().max(128).optional(),
+          agentId: z.string().min(1).max(128).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const piece = ctx.store.getPiece(input.pieceId);
+          if (!piece) {
+            throw new Error(`No such piece: ${input.pieceId}`);
+          }
+          return await payForPiece(ctx.store, piece, {
+            payer: input.payer,
+            agentId: input.agentId,
+          });
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+  }),
+
+  /**
+   * Live traction — the hackathon's deciding metric: total creator payouts.
+   * Public so it can headline the storefront and the demo.
+   */
+  traction: router({
+    stats: publicProcedure.query(({ ctx }) => {
+      const pieces = ctx.store.listPieces();
+      let totalUnlocks = 0;
+      let totalPaid6 = 0n;
+      const contributors = new Set<string>();
+      const chains = new Set<string>();
+      for (const p of pieces) {
+        totalUnlocks += p.unlocks;
+        totalPaid6 += p.totalPaid6;
+        for (const c of p.contributors) {
+          contributors.add(`${c.targetChain}:${c.address}`);
+          chains.add(c.targetChain);
+        }
+      }
+      const topPieces = [...pieces]
+        .sort((a, b) => b.unlocks - a.unlocks)
+        .slice(0, 5)
+        .map((p) => ({
+          id: p.id,
+          title: p.title,
+          kind: p.kind,
+          unlocks: p.unlocks,
+          totalPaid: formatUsdc6(p.totalPaid6),
+        }));
+      return {
+        totalUnlocks,
+        totalCreatorPaid: formatUsdc6(totalPaid6),
+        pieceCount: pieces.length,
+        contributorCount: contributors.size,
+        chainCount: chains.size,
+        chains: [...chains],
+        topPieces,
+        onchainMode: config.onchainEnabled ? "live" : "simulated",
+      };
+    }),
   }),
 });
 
