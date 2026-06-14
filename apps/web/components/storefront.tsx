@@ -12,6 +12,7 @@ import { ChainBadge, PathBadge, Pill, TxLink } from "./ui";
 export type Piece = Awaited<ReturnType<typeof trpc.pieces.list.query>>[number];
 export type Unlock = Awaited<ReturnType<typeof trpc.pieces.unlock.mutate>>;
 export type Traction = Awaited<ReturnType<typeof trpc.traction.stats.query>>;
+export type ReadingSession = Awaited<ReturnType<typeof trpc.agent.read.mutate>>;
 
 /** Format a 6dp base-unit string ("30000") as a USD display string ("$0.03"). */
 export function usd(base6: string): string {
@@ -99,6 +100,85 @@ export function FanOut({ unlock }: { unlock: Unlock }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** The agentic demo: an AI reading-agent that autonomously unlocks & pays creators. */
+export function AgentReader({ onRun }: { onRun?: () => void }) {
+  const [interests, setInterests] = useState("Arc, stablecoin, USDC");
+  const [running, setRunning] = useState(false);
+  const [session, setSession] = useState<ReadingSession | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = async () => {
+    setRunning(true);
+    setError(null);
+    try {
+      const result = await trpc.agent.read.mutate({
+        interests: interests.split(",").map((s) => s.trim()).filter(Boolean),
+        maxUnlocks: 5,
+        budgetUSDC: "0.50",
+      });
+      setSession(result);
+      onRun?.();
+    } catch (e) {
+      setError(errorInfo(e).message);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="card p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">
+          AI reading agent · auto-pays creators
+        </h2>
+        {session ? <Pill text={session.mode === "llm" ? "Claude decided" : "heuristic"} tone={session.mode === "llm" ? "emerald" : "slate"} /> : null}
+      </div>
+      <p className="mb-3 text-sm text-slate-400">
+        An autonomous agent reads the catalog, decides what's worth unlocking within a $0.50 budget,
+        and pays each creator per piece — splitting across chains. No human in the loop.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={interests}
+          onChange={(e) => setInterests(e.target.value)}
+          placeholder="interests, comma-separated"
+          className="min-w-[220px] flex-1 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200"
+        />
+        <button
+          onClick={run}
+          disabled={running}
+          className="rounded-xl bg-indigo-500/90 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-60"
+        >
+          {running ? "Agent reading…" : "Let the agent read & pay"}
+        </button>
+      </div>
+
+      {error ? <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div> : null}
+
+      {session ? (
+        <div className="mt-4">
+          <div className="mb-2 text-sm text-slate-300">
+            Unlocked <span className="font-semibold text-emerald-300">{session.unlocked}</span> pieces ·
+            paid <span className="font-semibold text-emerald-300">${session.spentUSDC}</span> to creators ·
+            considered {session.considered}
+          </div>
+          <div className="space-y-1.5">
+            {session.decisions.map((d) => (
+              <div key={d.pieceId} className="flex items-center justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-900/30 px-3 py-2 text-xs">
+                <span className="text-slate-300">{d.title}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-slate-500">{d.reason}</span>
+                  <Pill text={d.unlock ? `paid $${d.priceUSDC}` : "skipped"} tone={d.unlock ? "emerald" : "slate"} />
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

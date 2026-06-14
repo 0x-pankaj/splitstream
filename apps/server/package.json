@@ -20,6 +20,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
     "@arcane/shared": "workspace:*",
     "@circle-fin/adapter-viem-v2": "^1.11.2",
     "@circle-fin/app-kit": "^1.7.0",

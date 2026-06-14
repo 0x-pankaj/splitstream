@@ -16,7 +16,8 @@ import { authenticate } from "../auth/apiKeys.js";
 import { processBulkPayout } from "../services/payoutEngine.js";
 import { createAgentWallet } from "../services/agentTreasury.js";
 import { readTenantBalance6 } from "../services/vault.js";
-import { serializeAgent, serializeAudit } from "../trpc/serialize.js";
+import { payForPiece } from "../services/splitEngine.js";
+import { serializeAgent, serializeAudit, serializePiece } from "../trpc/serialize.js";
 import { formatUsdc6, planPayout, totalDebit6 } from "@arcane/shared";
 import { config } from "../config.js";
 
@@ -154,6 +155,47 @@ export function createMcpServer(store: Store): McpServer {
       try {
         const { tenant } = authenticate(store, apiKey, "treasury:read");
         return ok(store.auditForTenant(tenant.id).slice(0, limit).map(serializeAudit));
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_pieces",
+    {
+      title: "List monetizable content pieces",
+      description:
+        "Browse the SplitStream catalog: per-piece content (articles, photos, songs) a reader or agent can unlock for a few cents, with each piece's price and contributor split. No API key required — discovery is public.",
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        return ok(store.listPieces().map(serializePiece));
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "pay_for_piece",
+    {
+      title: "Unlock and pay for a piece",
+      description:
+        "Pay to unlock one content piece. The sub-cent payment is split instantly across every contributor on their own chain via Arc. Any agent can call this to pay creators autonomously; pass an optional agentId to enforce that wallet's spend caps.",
+      inputSchema: {
+        pieceId: z.string().describe("The id of the piece to unlock"),
+        payer: z.string().optional().describe("Identifier for the paying agent/wallet"),
+        agentId: z.string().optional().describe("Scoped agent wallet to enforce spend caps"),
+      },
+    },
+    async ({ pieceId, payer, agentId }) => {
+      try {
+        const piece = store.getPiece(pieceId);
+        if (!piece) return fail(new Error(`No such piece: ${pieceId}`));
+        const result = await payForPiece(store, piece, { payer, agentId });
+        return ok(result);
       } catch (err) {
         return fail(err);
       }

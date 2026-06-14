@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { trpc, errorInfo } from "../lib/trpc";
-import { PieceCard, TractionHero, type Piece, type Traction } from "../components/storefront";
+import { AgentReader, PieceCard, TractionHero, type Piece, type Traction } from "../components/storefront";
 
 export default function Storefront() {
   const [pieces, setPieces] = useState<Piece[]>([]);
@@ -58,6 +58,10 @@ export default function Storefront() {
       </header>
 
       <TractionHero stats={stats} />
+
+      <div className="mt-6">
+        <AgentReader onRun={refresh} />
+      </div>
 
       {error ? (
         <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">

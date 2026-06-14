@@ -29,6 +29,7 @@ import { createAgentWallet, setAgentEnabled } from "../services/agentTreasury.js
 import { signupTenant } from "../services/onboarding.js";
 import { addTenantRecipient, removeTenantRecipient } from "../services/recipients.js";
 import { payForPiece } from "../services/splitEngine.js";
+import { runReadingAgent } from "../services/readingAgent.js";
 
 /** Arc L1 native USDC system contract (6dp ERC-20 view). */
 const ARC_USDC = "0x3600000000000000000000000000000000000000";
@@ -378,6 +379,38 @@ export const appRouter = router({
         onchainMode: config.onchainEnabled ? "live" : "simulated",
       };
     }),
+  }),
+
+  /**
+   * The agentic layer: an autonomous reading-agent that decides which pieces to
+   * unlock and pays the creators per piece. Public so the storefront's "let an
+   * agent read" demo can drive real payment volume on its own.
+   */
+  agent: router({
+    read: publicProcedure
+      .input(
+        z.object({
+          interests: z.array(z.string().min(1)).min(1).max(10),
+          maxUnlocks: z.number().int().min(1).max(50).default(3),
+          budgetUSDC: z
+            .string()
+            .regex(/^\d+(\.\d{1,6})?$/)
+            .default("0.50"),
+          agentId: z.string().min(1).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        try {
+          return await runReadingAgent(ctx.store, {
+            interests: input.interests,
+            maxUnlocks: input.maxUnlocks,
+            budgetUSDC: input.budgetUSDC,
+            agentId: input.agentId,
+          });
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
   }),
 });
 

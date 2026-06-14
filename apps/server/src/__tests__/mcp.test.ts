@@ -34,7 +34,15 @@ describe("MCP server", () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
-      ["get_audit_log", "get_treasury_balance", "set_agent_policy", "simulate_route", "submit_bulk_payout"].sort(),
+      [
+        "get_audit_log",
+        "get_treasury_balance",
+        "list_pieces",
+        "pay_for_piece",
+        "set_agent_policy",
+        "simulate_route",
+        "submit_bulk_payout",
+      ].sort(),
     );
   });
 
