@@ -16,7 +16,7 @@ import { authenticate } from "../auth/apiKeys.js";
 import { processBulkPayout } from "../services/payoutEngine.js";
 import { createAgentWallet } from "../services/agentTreasury.js";
 import { readTenantBalance6 } from "../services/vault.js";
-import { payForPiece } from "../services/splitEngine.js";
+import { callPaidService, payForPiece } from "../services/splitEngine.js";
 import { serializeAgent, serializeAudit, serializePiece } from "../trpc/serialize.js";
 import { formatUsdc6, planPayout, totalDebit6 } from "@arcane/shared";
 import { config } from "../config.js";
@@ -195,6 +195,32 @@ export function createMcpServer(store: Store): McpServer {
         const piece = store.getPiece(pieceId);
         if (!piece) return fail(new Error(`No such piece: ${pieceId}`));
         const result = await payForPiece(store, piece, { payer, agentId });
+        return ok(result);
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "call_api",
+    {
+      title: "Pay for and call a paid API service",
+      description:
+        "For pieces of kind 'api': pay the sub-cent price (split to the API's owners on Arc) and proxy one call to its upstream endpoint, returning the response. This is how an agent pays per call for a registered API — discover via list_pieces, then call_api.",
+      inputSchema: {
+        pieceId: z.string().describe("The id of an 'api' piece to call"),
+        payer: z.string().optional(),
+        agentId: z.string().optional(),
+        input: z.record(z.unknown()).optional().describe("Forwarded to the upstream (JSON body for POST)"),
+      },
+    },
+    async ({ pieceId, payer, agentId, input }) => {
+      try {
+        const piece = store.getPiece(pieceId);
+        if (!piece) return fail(new Error(`No such piece: ${pieceId}`));
+        if (piece.kind !== "api") return fail(new Error(`Piece ${pieceId} is not an API service`));
+        const result = await callPaidService(store, piece, { payer, agentId, input });
         return ok(result);
       } catch (err) {
         return fail(err);

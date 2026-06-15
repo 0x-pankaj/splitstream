@@ -15,6 +15,7 @@ export const DEMO_TENANT_ADDRESS = "0xAcME00000000000000000000000000000000Cafe" 
 export const DEMO_API_KEY = "arc_test_sk_demo_0001";
 export const DEMO_AGENT_ID = "agent-adbuyer-01";
 export const DEMO_PIECE_ID = "piece-arc-frontier-001";
+export const DEMO_API_ID = "piece-fx-api-001";
 
 /** Recipients the demo tenant has vetted/whitelisted. */
 export const DEMO_RECIPIENTS: Array<{ address: string; chain: TargetChain }> = [
@@ -142,6 +143,23 @@ export function seedDemo(store: Store, opts: SeedOptions = {}): void {
       { role: "writer", address: "0x1111111111111111111111111111111111111111", targetChain: "base", splitBps: 6000 },
       { role: "editor", address: "0x2222222222222222222222222222222222222222", targetChain: "arbitrum", splitBps: 2500 },
       { role: "photographer", address: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin", targetChain: "solana", splitBps: 1500 },
+    ],
+    createdAt: "2026-06-01T00:00:00.000Z",
+  });
+
+  // A demo paid API (x402): an agent pays $0.01 per call and gets a live
+  // USD→EUR FX quote. Revenue goes to the API owner on Base. This is the
+  // "register your own API so AI can pay per call" surface.
+  store.createPiece({
+    id: DEMO_API_ID,
+    publisherTenantId: DEMO_TENANT_ID,
+    title: "USD→EUR FX Rate API",
+    kind: "api",
+    price6: parseUsdc6("0.01"),
+    endpoint: "https://api.frankfurter.app/latest?from=USD&to=EUR",
+    httpMethod: "GET",
+    contributors: [
+      { role: "api owner", address: "0x4444444444444444444444444444444444444444", targetChain: "base", splitBps: 10000 },
     ],
     createdAt: "2026-06-01T00:00:00.000Z",
   });

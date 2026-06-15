@@ -10,8 +10,13 @@
 
 import type { TargetChain } from "./types.js";
 
-/** The kind of content being monetized per-piece. */
-export type PieceKind = "article" | "photo" | "song" | "podcast";
+/**
+ * The kind of resource being monetized per-piece. Content kinds (article, photo,
+ * song, podcast) unlock on payment; the "api" kind is a paid service — paying
+ * proxies one call to its upstream endpoint and returns the response (the
+ * x402 / pay-per-call model an AI agent uses).
+ */
+export type PieceKind = "article" | "photo" | "song" | "podcast" | "api";
 
 /** Basis points denominator: 10000 bps = 100%. */
 export const BPS_DENOMINATOR = 10_000;
@@ -38,8 +43,12 @@ export interface Piece {
   publisherTenantId: string;
   title: string;
   kind: PieceKind;
-  /** Price to unlock the piece once, in 6dp USDC base units. */
+  /** Price to unlock the piece (or to make one API call), in 6dp USDC base units. */
   price6: bigint;
+  /** For kind "api": the upstream endpoint the platform proxies one call to. */
+  endpoint?: string;
+  /** For kind "api": HTTP method used to call `endpoint` (default GET). */
+  httpMethod?: "GET" | "POST";
   /** Everyone who gets paid when the piece is unlocked. Shares sum to 10000 bps. */
   contributors: Contributor[];
   createdAt: string;

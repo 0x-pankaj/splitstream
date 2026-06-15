@@ -14,6 +14,7 @@
 import { Hono } from "hono";
 import {
   ArcaneError,
+  CallPieceSchema,
   CreatePieceSchema,
   PayPieceSchema,
   formatUsdc6,
@@ -22,7 +23,7 @@ import {
 } from "@arcane/shared";
 import type { Store } from "../db/store.js";
 import { authenticate } from "../auth/apiKeys.js";
-import { payForPiece, whitelistContributors } from "../services/splitEngine.js";
+import { callPaidService, payForPiece, whitelistContributors } from "../services/splitEngine.js";
 
 /** Serialize a piece for JSON responses (bigint → human USDC string). */
 function pieceView(piece: Piece) {
@@ -33,6 +34,8 @@ function pieceView(piece: Piece) {
     kind: piece.kind,
     priceUSDC: formatUsdc6(piece.price6),
     contributors: piece.contributors,
+    endpoint: piece.endpoint ?? null,
+    httpMethod: piece.httpMethod ?? null,
     createdAt: piece.createdAt,
     unlocks: piece.unlocks,
     totalPaidUSDC: formatUsdc6(piece.totalPaid6),
@@ -75,6 +78,8 @@ export function pieceRoutes(store: Store): Hono {
         kind: parsed.data.kind,
         price6: parseUsdc6(parsed.data.priceUSDC),
         contributors: parsed.data.contributors,
+        endpoint: parsed.data.endpoint,
+        httpMethod: parsed.data.httpMethod,
       });
       // Vet contributors up front so the unlock path's compliance check passes.
       whitelistContributors(store, piece);
@@ -121,6 +126,35 @@ export function pieceRoutes(store: Store): Hono {
 
       const result = await payForPiece(store, piece, parsed.data);
       return c.json({ ok: true, unlock: result }, 200);
+    } catch (err) {
+      const { body, status } = errorResponse(err);
+      return c.json(body, status);
+    }
+  });
+
+  // Public pay-per-call: pay for one call to an "api" piece and get the upstream
+  // response. This is the x402 flow an AI agent uses to pay for your API.
+  app.post("/:id/call", async (c) => {
+    try {
+      const piece = store.getPiece(c.req.param("id"));
+      if (!piece) {
+        return c.json({ code: "NOT_FOUND", message: "No such piece" }, 404);
+      }
+      if (piece.kind !== "api") {
+        return c.json({ code: "NOT_CALLABLE", message: "Piece is not an API service" }, 400);
+      }
+
+      const body = await c.req.json().catch(() => ({}));
+      const parsed = CallPieceSchema.safeParse(body ?? {});
+      if (!parsed.success) {
+        return c.json(
+          { code: "VALIDATION_FAILED", message: "Invalid call payload", issues: parsed.error.issues },
+          400,
+        );
+      }
+
+      const result = await callPaidService(store, piece, parsed.data);
+      return c.json({ ok: true, ...result }, 200);
     } catch (err) {
       const { body, status } = errorResponse(err);
       return c.json(body, status);

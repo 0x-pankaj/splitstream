@@ -115,7 +115,7 @@ export type RecipientInput = z.infer<typeof RecipientInputSchema>;
 
 // ── SplitStream: pieces & per-piece payments ────────────────────────────────
 
-export const PIECE_KINDS = ["article", "photo", "song", "podcast"] as const;
+export const PIECE_KINDS = ["article", "photo", "song", "podcast", "api"] as const;
 
 /** One contributor line: role, payout address, chain, and basis-point share. */
 export const ContributorSchema = z
@@ -137,13 +137,26 @@ export const ContributorSchema = z
 
 export type ContributorInput = z.infer<typeof ContributorSchema>;
 
-/** A publisher registers a monetizable piece with a price and a contributor split. */
+/** An http(s) URL — the upstream endpoint a paid API piece proxies to. */
+const httpUrl = z
+  .string()
+  .url()
+  .refine((u) => /^https?:\/\//i.test(u), "endpoint must be an http(s) URL");
+
+/**
+ * A publisher registers a monetizable piece: content (unlocks on payment) or an
+ * "api" service (paying proxies one call to its endpoint). Contributor shares
+ * must sum to 100%; an "api" piece requires an endpoint.
+ */
 export const CreatePieceSchema = z
   .object({
     title: z.string().min(1).max(200),
     kind: z.enum(PIECE_KINDS),
     priceUSDC: usdcAmount,
     contributors: z.array(ContributorSchema).min(1).max(20),
+    /** Required when kind === "api": the upstream endpoint to proxy on payment. */
+    endpoint: httpUrl.optional(),
+    httpMethod: z.enum(["GET", "POST"]).default("GET"),
   })
   .superRefine((piece, ctx) => {
     const sum = piece.contributors.reduce((acc, c) => acc + c.splitBps, 0);
@@ -152,6 +165,13 @@ export const CreatePieceSchema = z
         code: z.ZodIssueCode.custom,
         path: ["contributors"],
         message: `contributor splitBps must sum to 10000 (100%); got ${sum}`,
+      });
+    }
+    if (piece.kind === "api" && !piece.endpoint) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endpoint"],
+        message: 'an "api" piece requires an endpoint URL',
       });
     }
   });
@@ -167,3 +187,13 @@ export const PayPieceSchema = z.object({
 });
 
 export type PayPieceInput = z.infer<typeof PayPieceSchema>;
+
+/** Pay for one call to an "api" piece. Optional input forwarded to the endpoint. */
+export const CallPieceSchema = z.object({
+  payer: z.string().max(128).optional(),
+  agentId: z.string().min(1).max(128).optional(),
+  /** Forwarded to the upstream: as a JSON body for POST, ignored for GET. */
+  input: z.record(z.unknown()).optional(),
+});
+
+export type CallPieceInput = z.infer<typeof CallPieceSchema>;

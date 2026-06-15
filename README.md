@@ -64,6 +64,33 @@ curl -X POST localhost:8787/trpc/agent.read -H 'content-type: application/json' 
   -d '{"interests":["stablecoin","arc"],"maxUnlocks":5,"budgetUSDC":"0.50"}'
 ```
 
+## Register your own API for agents to pay per call (x402 / pay.sh-style)
+
+A piece can be a **paid API service** (`kind: "api"`): you register your app's
+endpoint with a per-call price and a revenue split; an AI agent discovers it,
+**pays the sub-cent price on Arc, and the platform proxies one call to your
+endpoint and returns the response.** No API keys to issue, no billing setup —
+stablecoin pay-per-call.
+
+```bash
+# SELLER: register your API (price + upstream endpoint + who gets paid)
+curl -X POST localhost:8787/api/v1/pieces -H 'content-type: application/json' \
+  -H 'x-api-key: arc_test_sk_demo_0001' \
+  -d '{"title":"My App: FX Rates","kind":"api","priceUSDC":"0.01",
+       "endpoint":"https://api.frankfurter.app/latest?from=USD&to=EUR","httpMethod":"GET",
+       "contributors":[{"role":"api owner","address":"0x4444…","targetChain":"base","splitBps":10000}]}'
+
+# AGENT (or anyone): pay $0.01 and get the live upstream result back
+curl -X POST localhost:8787/api/v1/pieces/piece-fx-api-001/call \
+  -H 'content-type: application/json' -d '{"payer":"agent-bob"}'
+# → { "unlock": {…paid+split…}, "upstream": { "ok": true, "status": 200, "body": { "rates": { "EUR": 0.86 } } } }
+```
+
+Sellers can do this from the UI too — **`/publish`** registers either a content
+piece or a paid API. Agents discover and pay via the MCP tools `list_pieces` +
+`call_api`. The payment still splits across chains, so an API with multiple
+owners is paid out automatically.
+
 ## The split engine (reuses a proven Arc settlement spine)
 
 A piece payment *is* a bulk payout — the contributors are the recipients, their

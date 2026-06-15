@@ -79,6 +79,68 @@ export function whitelistContributors(store: Store, piece: Piece): void {
   }
 }
 
+/** The upstream response returned to a caller after paying for an API piece. */
+export interface ServiceCallResult {
+  unlock: PieceUnlockResult;
+  upstream: {
+    ok: boolean;
+    status: number;
+    /** Upstream body (parsed JSON when possible, else raw text, truncated). */
+    body: unknown;
+    error?: string;
+  };
+}
+
+const UPSTREAM_TIMEOUT_MS = 10_000;
+const MAX_BODY_CHARS = 20_000;
+
+/**
+ * Pay for ONE call to an "api" piece, then proxy the upstream request and return
+ * its response — the x402 / pay-per-call flow an agent uses. Payment (and the
+ * cross-chain split to the API's owners) happens first via payForPiece; only
+ * then is the upstream called. Network/HTTP failures are reported, not thrown,
+ * so the caller always learns the payment settled.
+ */
+export async function callPaidService(
+  store: Store,
+  piece: Piece,
+  opts: { payer?: string; agentId?: string; input?: Record<string, unknown> } = {},
+  now = Date.now(),
+): Promise<ServiceCallResult> {
+  if (piece.kind !== "api" || !piece.endpoint) {
+    throw errors.internal(`Piece ${piece.id} is not a callable API service`);
+  }
+
+  const unlock = await payForPiece(store, piece, { payer: opts.payer, agentId: opts.agentId }, now);
+
+  const method = piece.httpMethod ?? "GET";
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+  try {
+    const res = await fetch(piece.endpoint, {
+      method,
+      signal: controller.signal,
+      headers: method === "POST" ? { "content-type": "application/json" } : undefined,
+      body: method === "POST" ? JSON.stringify(opts.input ?? {}) : undefined,
+    });
+    const raw = (await res.text()).slice(0, MAX_BODY_CHARS);
+    let body: unknown = raw;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      /* not JSON — keep the raw text */
+    }
+    return { unlock, upstream: { ok: res.ok, status: res.status, body } };
+  } catch (err) {
+    return {
+      unlock,
+      upstream: { ok: false, status: 0, body: null, error: err instanceof Error ? err.message : "upstream call failed" },
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Pay for (unlock) a piece: split the price across contributors and settle each
  * on their chain via the reused payout engine.

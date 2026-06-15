@@ -35,6 +35,7 @@ describe("MCP server", () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
+        "call_api",
         "get_audit_log",
         "get_treasury_balance",
         "list_pieces",

@@ -23,6 +23,8 @@ export function serializePiece(p: Piece) {
     price: formatUsdc6(p.price6),
     contributors: p.contributors,
     chains: [...new Set(p.contributors.map((c) => c.targetChain))],
+    endpoint: p.endpoint ?? null,
+    httpMethod: p.httpMethod ?? null,
     createdAt: p.createdAt,
     unlocks: p.unlocks,
     totalPaid: formatUsdc6(p.totalPaid6),

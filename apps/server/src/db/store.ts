@@ -243,6 +243,8 @@ export class Store {
     kind: PieceKind;
     price6: bigint;
     contributors: Contributor[];
+    endpoint?: string;
+    httpMethod?: "GET" | "POST";
     createdAt?: string;
   }): Piece {
     const piece: Piece = {
@@ -252,6 +254,8 @@ export class Store {
       kind: input.kind,
       price6: input.price6,
       contributors: input.contributors,
+      endpoint: input.endpoint,
+      httpMethod: input.httpMethod,
       createdAt: input.createdAt ?? new Date().toISOString(),
       unlocks: 0,
       totalPaid6: 0n,

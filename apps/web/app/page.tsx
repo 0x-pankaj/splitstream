@@ -52,9 +52,14 @@ export default function Storefront() {
             contributor — each paid on their own chain, in under 500ms. No subscription, no signup.
           </p>
         </div>
-        <Link href="/dashboard" className="shrink-0 rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700/40">
-          Publisher console →
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link href="/publish" className="rounded-lg bg-indigo-500/90 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-400">
+            + Publish
+          </Link>
+          <Link href="/dashboard" className="rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700/40">
+            Console →
+          </Link>
+        </div>
       </header>
 
       <TractionHero stats={stats} />

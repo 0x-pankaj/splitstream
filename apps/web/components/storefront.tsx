@@ -13,6 +13,7 @@ export type Piece = Awaited<ReturnType<typeof trpc.pieces.list.query>>[number];
 export type Unlock = Awaited<ReturnType<typeof trpc.pieces.unlock.mutate>>;
 export type Traction = Awaited<ReturnType<typeof trpc.traction.stats.query>>;
 export type ReadingSession = Awaited<ReturnType<typeof trpc.agent.read.mutate>>;
+export type ServiceCall = Awaited<ReturnType<typeof trpc.pieces.callApi.mutate>>;
 
 /** Format a 6dp base-unit string ("30000") as a USD display string ("$0.03"). */
 export function usd(base6: string): string {
@@ -104,6 +105,152 @@ export function FanOut({ unlock }: { unlock: Unlock }) {
   );
 }
 
+const CHAINS = ["base", "arbitrum", "ethereum", "solana"] as const;
+const KINDS = ["article", "photo", "song", "podcast", "api"] as const;
+
+interface Row {
+  role: string;
+  address: string;
+  targetChain: (typeof CHAINS)[number];
+  percent: string;
+}
+
+/** Seller surface: register a content piece OR a paid API (x402) with a split. */
+export function PublishForm({ onPublished }: { onPublished?: (id: string) => void }) {
+  const [title, setTitle] = useState("");
+  const [kind, setKind] = useState<(typeof KINDS)[number]>("article");
+  const [price, setPrice] = useState("0.05");
+  const [endpoint, setEndpoint] = useState("");
+  const [method, setMethod] = useState<"GET" | "POST">("GET");
+  const [rows, setRows] = useState<Row[]>([
+    { role: "creator", address: "", targetChain: "base", percent: "100" },
+  ]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [okId, setOkId] = useState<string | null>(null);
+
+  const isApi = kind === "api";
+  const percentSum = rows.reduce((s, r) => s + (Number(r.percent) || 0), 0);
+
+  const setRow = (i: number, patch: Partial<Row>) =>
+    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+
+  const publish = async () => {
+    setBusy(true);
+    setError(null);
+    setOkId(null);
+    try {
+      const contributors = rows.map((r) => ({
+        role: r.role.trim(),
+        address: r.address.trim(),
+        targetChain: r.targetChain,
+        splitBps: Math.round((Number(r.percent) || 0) * 100),
+      }));
+      const piece = await trpc.pieces.create.mutate({
+        title: title.trim(),
+        kind,
+        priceUSDC: price.trim(),
+        contributors,
+        ...(isApi ? { endpoint: endpoint.trim(), httpMethod: method } : {}),
+      });
+      setOkId(piece.id);
+      onPublished?.(piece.id);
+    } catch (e) {
+      setError(errorInfo(e).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card p-5">
+      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wider text-slate-300">Publish</h2>
+      <p className="mb-4 text-sm text-slate-400">
+        List a piece of content (unlocks on payment) or register your own API for AI agents to pay per call.
+        Define who gets what % — payment auto-splits across chains.
+      </p>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="text-xs text-slate-400">
+          Title
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. My App: weather API"
+            className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200" />
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="text-xs text-slate-400">
+            Kind
+            <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200">
+              {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-slate-400">
+            Price USDC
+            <input value={price} onChange={(e) => setPrice(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200" />
+          </label>
+        </div>
+      </div>
+
+      {isApi ? (
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+          <label className="text-xs text-slate-400">
+            Upstream endpoint (your API)
+            <input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder="https://api.yourapp.com/v1/..."
+              className="mono mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs text-slate-200" />
+          </label>
+          <label className="text-xs text-slate-400">
+            Method
+            <select value={method} onChange={(e) => setMethod(e.target.value as "GET" | "POST")}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200">
+              <option>GET</option><option>POST</option>
+            </select>
+          </label>
+        </div>
+      ) : null}
+
+      <div className="mt-4">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-xs uppercase tracking-wider text-slate-400">Revenue split</span>
+          <span className={`text-xs ${percentSum === 100 ? "text-emerald-300" : "text-amber-300"}`}>sum {percentSum}%</span>
+        </div>
+        <div className="space-y-2">
+          {rows.map((r, i) => (
+            <div key={i} className="grid grid-cols-[1fr_1.6fr_1fr_auto_auto] items-center gap-2">
+              <input value={r.role} onChange={(e) => setRow(i, { role: e.target.value })} placeholder="role"
+                className="rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200" />
+              <input value={r.address} onChange={(e) => setRow(i, { address: e.target.value })} placeholder="payout address"
+                className="mono rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200" />
+              <select value={r.targetChain} onChange={(e) => setRow(i, { targetChain: e.target.value as Row["targetChain"] })}
+                className="rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200">
+                {CHAINS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <input value={r.percent} onChange={(e) => setRow(i, { percent: e.target.value })} placeholder="%"
+                className="w-16 rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200" />
+              <button onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))} disabled={rows.length === 1}
+                className="rounded-lg border border-slate-600 px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-700/40 disabled:opacity-40">×</button>
+            </div>
+          ))}
+        </div>
+        <button onClick={() => setRows((rs) => [...rs, { role: "", address: "", targetChain: "base", percent: "0" }])}
+          className="mt-2 text-xs text-indigo-300 hover:text-indigo-200">+ add contributor</button>
+      </div>
+
+      <button onClick={publish} disabled={busy || percentSum !== 100 || !title}
+        className="mt-4 rounded-xl bg-indigo-500/90 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-50">
+        {busy ? "Publishing…" : isApi ? "Register API" : "Publish piece"}
+      </button>
+
+      {error ? <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div> : null}
+      {okId ? (
+        <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+          Published! Live at <code className="mono">/piece/{okId}</code> and in the catalog.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /** The agentic demo: an AI reading-agent that autonomously unlocks & pays creators. */
 export function AgentReader({ onRun }: { onRun?: () => void }) {
   const [interests, setInterests] = useState("Arc, stablecoin, USDC");
@@ -183,23 +330,30 @@ export function AgentReader({ onRun }: { onRun?: () => void }) {
   );
 }
 
-/** A single piece with its split preview and an Unlock button + fan-out reveal. */
+/** A single piece. Content → "Unlock"; API → "Call" (pay-per-call x402). */
 export function PieceCard({ piece, onUnlocked }: { piece: Piece; onUnlocked?: () => void }) {
-  const [unlocking, setUnlocking] = useState(false);
+  const isApi = piece.kind === "api";
+  const [busy, setBusy] = useState(false);
   const [unlock, setUnlock] = useState<Unlock | null>(null);
+  const [call, setCall] = useState<ServiceCall | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const doUnlock = async () => {
-    setUnlocking(true);
+  const run = async () => {
+    setBusy(true);
     setError(null);
     try {
-      const result = await trpc.pieces.unlock.mutate({ pieceId: piece.id, payer: "web-reader" });
-      setUnlock(result);
+      if (isApi) {
+        const result = await trpc.pieces.callApi.mutate({ pieceId: piece.id, payer: "web-agent" });
+        setCall(result);
+      } else {
+        const result = await trpc.pieces.unlock.mutate({ pieceId: piece.id, payer: "web-reader" });
+        setUnlock(result);
+      }
       onUnlocked?.();
     } catch (e) {
       setError(errorInfo(e).message);
     } finally {
-      setUnlocking(false);
+      setBusy(false);
     }
   };
 
@@ -207,12 +361,15 @@ export function PieceCard({ piece, onUnlocked }: { piece: Piece; onUnlocked?: ()
     <div className="card flex flex-col p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <Pill text={piece.kind} tone="slate" />
+          <Pill text={isApi ? "paid API" : piece.kind} tone={isApi ? "amber" : "slate"} />
           <h3 className="mt-2 text-lg font-semibold leading-snug text-slate-100">{piece.title}</h3>
+          {isApi && piece.endpoint ? (
+            <div className="mono mt-1 truncate text-[11px] text-slate-500">{piece.httpMethod ?? "GET"} {piece.endpoint}</div>
+          ) : null}
         </div>
         <div className="text-right">
           <div className="text-2xl font-semibold text-slate-100">${piece.price}</div>
-          <div className="text-[11px] uppercase tracking-wider text-slate-400">per unlock</div>
+          <div className="text-[11px] uppercase tracking-wider text-slate-400">{isApi ? "per call" : "per unlock"}</div>
         </div>
       </div>
 
@@ -229,20 +386,35 @@ export function PieceCard({ piece, onUnlocked }: { piece: Piece; onUnlocked?: ()
       </div>
 
       <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
-        <span>{piece.unlocks} unlocks · ${piece.totalPaid} to creators</span>
-        <span>{piece.chains.length} chains</span>
+        <span>{piece.unlocks} {isApi ? "calls" : "unlocks"} · ${piece.totalPaid} to {isApi ? "owner" : "creators"}</span>
+        <span>{piece.chains.length} chain{piece.chains.length === 1 ? "" : "s"}</span>
       </div>
 
       <button
-        onClick={doUnlock}
-        disabled={unlocking}
-        className="mt-4 rounded-xl bg-emerald-500/90 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-emerald-400 disabled:opacity-60"
+        onClick={run}
+        disabled={busy}
+        className={`mt-4 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-60 ${
+          isApi ? "bg-amber-400/90 text-slate-900 hover:bg-amber-300" : "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400"
+        }`}
       >
-        {unlocking ? "Splitting across chains…" : `Unlock for $${piece.price}`}
+        {busy ? (isApi ? "Paying & calling…" : "Splitting across chains…") : isApi ? `Pay & call · $${piece.price}` : `Unlock for $${piece.price}`}
       </button>
 
       {error ? <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div> : null}
       {unlock ? <FanOut unlock={unlock} /> : null}
+      {call ? (
+        <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/[0.06] p-4">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="font-semibold text-amber-300">
+              Paid ${call.unlock.price6 ? (Number(call.unlock.price6) / 1e6).toFixed(2) : piece.price} · owner paid on {call.unlock.chains.join(", ")}
+            </span>
+            <Pill text={call.upstream.ok ? `200 OK` : `error`} tone={call.upstream.ok ? "emerald" : "slate"} />
+          </div>
+          <pre className="mono max-h-48 overflow-auto rounded-lg border border-slate-700/60 bg-slate-900/60 p-3 text-[11px] text-slate-300">
+{JSON.stringify(call.upstream.body ?? call.upstream.error, null, 2)}
+          </pre>
+        </div>
+      ) : null}
     </div>
   );
 }

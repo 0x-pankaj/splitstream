@@ -127,6 +127,14 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
   explorer links; `PHASE4_LIVE_PROOF.md` documents the funded prerequisites. The
   live path is real (submits a real `executeIntent`), not simulated. The funded
   on-chain run (deposit + on-chain whitelist + `LIVE_GATEWAY`) is the user's step.
+- **x402 / paid-API surface (post-Phase-4)** — a piece can be `kind: "api"` with
+  an upstream `endpoint`; `callPaidService` pays (splitting to owners) then
+  proxies one upstream call and returns the response. REST `POST /pieces/:id/call`,
+  tRPC `pieces.callApi`, MCP `call_api`. Seed: `piece-fx-api-001` (live FX API).
+  **Seller Publish form** at `/publish` (content or API), tRPC `pieces.create`.
+  Verified in a real browser (puppeteer): catalog renders both kinds, "Pay &
+  call" returned a live upstream result in-page, publish form switches to API
+  mode. Verified over HTTP: agent paid $0.01 → owner paid on Base + live FX result.
 - **Tests: 40/40 green. Typecheck clean across all packages. Web builds clean.**
 
 **Earlier (session 1) detail:**

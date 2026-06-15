@@ -28,8 +28,9 @@ import { processBulkPayout } from "../services/payoutEngine.js";
 import { createAgentWallet, setAgentEnabled } from "../services/agentTreasury.js";
 import { signupTenant } from "../services/onboarding.js";
 import { addTenantRecipient, removeTenantRecipient } from "../services/recipients.js";
-import { payForPiece } from "../services/splitEngine.js";
+import { callPaidService, payForPiece, whitelistContributors } from "../services/splitEngine.js";
 import { runReadingAgent } from "../services/readingAgent.js";
+import { CreatePieceSchema, CallPieceSchema, parseUsdc6 } from "@arcane/shared";
 
 /** Arc L1 native USDC system contract (6dp ERC-20 view). */
 const ARC_USDC = "0x3600000000000000000000000000000000000000";
@@ -312,6 +313,44 @@ export const appRouter = router({
       .query(({ ctx, input }) => {
         const piece = ctx.store.getPiece(input.pieceId);
         return piece ? serializePiece(piece) : null;
+      }),
+
+    /** Publisher registers a piece (content or paid API). Requires an API key. */
+    create: protectedProcedure
+      .input(CreatePieceSchema)
+      .mutation(({ ctx, input }) => {
+        try {
+          const piece = ctx.store.createPiece({
+            publisherTenantId: ctx.auth!.tenant.id,
+            title: input.title,
+            kind: input.kind,
+            price6: parseUsdc6(input.priceUSDC),
+            contributors: input.contributors,
+            endpoint: input.endpoint,
+            httpMethod: input.httpMethod,
+          });
+          whitelistContributors(ctx.store, piece);
+          return serializePiece(piece);
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
+    /** Pay for one call to an "api" piece and return the upstream response. */
+    callApi: publicProcedure
+      .input(CallPieceSchema.extend({ pieceId: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const piece = ctx.store.getPiece(input.pieceId);
+          if (!piece) throw new Error(`No such piece: ${input.pieceId}`);
+          return await callPaidService(ctx.store, piece, {
+            payer: input.payer,
+            agentId: input.agentId,
+            input: input.input,
+          });
+        } catch (err) {
+          throw toTRPCError(err);
+        }
       }),
 
     /** Unlock (pay for) a piece — fans the price out to every contributor. */
