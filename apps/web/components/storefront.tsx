@@ -135,7 +135,7 @@ export function AgentReader({ onRun }: { onRun?: () => void }) {
         <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">
           AI reading agent · auto-pays creators
         </h2>
-        {session ? <Pill text={session.mode === "llm" ? "Claude decided" : "heuristic"} tone={session.mode === "llm" ? "emerald" : "slate"} /> : null}
+        {session ? <Pill text={session.mode === "llm" ? "AI decided" : "heuristic"} tone={session.mode === "llm" ? "emerald" : "slate"} /> : null}
       </div>
       <p className="mb-3 text-sm text-slate-400">
         An autonomous agent reads the catalog, decides what's worth unlocking within a $0.50 budget,

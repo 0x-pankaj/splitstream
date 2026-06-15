@@ -117,10 +117,11 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
   fan-out reveal, live creator-payout counter), shareable `/piece/[id]`, dashboard
   at `/dashboard`. Web builds clean (4 routes). Counter verified climbing $0→$0.05.
 - **Phase 3 complete** — agentic layer: `readingAgent.ts` (heuristic default +
-  optional Claude `claude-opus-4-8` structured-output decision, graceful
-  fallback; budget/caps enforced in code), tRPC `agent.read`, MCP tools
-  `list_pieces` + `pay_for_piece`, web `AgentReader` panel. Verified: agent
-  autonomously unlocked a piece and paid $0.05 to creators.
+  optional LLM decision via **OpenRouter**, model `deepseek/deepseek-v4-pro`,
+  graceful fallback; budget/caps enforced in code), tRPC `agent.read`, MCP tools
+  `list_pieces` + `pay_for_piece`, web `AgentReader` panel. Verified live: with
+  `OPENROUTER_API_KEY` set the agent ran in `llm` mode (DeepSeek scored the piece
+  0.95) and paid $0.05 to creators.
 - **Phase 4 wired + documented** — `scripts/prove-split.ts` (`pnpm --filter
   @arcane/server prove:split`) runs one real unlock through the live engine with
   explorer links; `PHASE4_LIVE_PROOF.md` documents the funded prerequisites. The

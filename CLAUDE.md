@@ -138,11 +138,17 @@ publisher tenant → store the piece.
 4. Record the unlock (`unlocks++`, `totalPaid6 +=`) for the traction counter.
 5. Return the unlock receipt + per-contributor settlement (tx hashes, latency).
 
-### Live vs mirror mode
-- **Mirror (default, no `.env`):** in-memory ledger, simulated receipts. Fully
-  demoable with zero keys. Use for tests and local dev.
-- **Live (`RELAYER_PRIVATE_KEY` + `VAULT_ADDRESS` + `LIVE_GATEWAY=true`):** real
-  Arc Testnet `executeIntent` + real Circle Gateway settlement.
+### Live vs mirror mode + env files
+- **`apps/server/.env` (demo default):** mirror mode (no relayer/vault →
+  simulated settlement) **+ `OPENROUTER_API_KEY`** so the reading-agent runs in
+  `llm` mode. This is the always-works demo path; `pnpm dev` uses it.
+- **`apps/server/.env.live`:** the live Arc creds (`RELAYER_PRIVATE_KEY`,
+  `VAULT_ADDRESS`, `COMPLIANCE_GUARD_ADDRESS`, `LIVE_GATEWAY`). For the on-chain
+  proof: `cp .env.live .env` (or pass inline) then `prove:split`. Both `.env*`
+  are gitignored — **never commit keys.**
+- **Reading-agent LLM:** via **OpenRouter** (OpenAI SDK, `baseURL`
+  `https://openrouter.ai/api/v1`), model `deepseek/deepseek-v4-pro` (override
+  `OPENROUTER_MODEL`). No key → deterministic heuristic fallback. NOT Anthropic.
 
 ---
 

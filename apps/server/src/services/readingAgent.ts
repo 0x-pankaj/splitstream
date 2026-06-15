@@ -13,7 +13,8 @@
  * Two decision modes, mirroring the rest of the codebase's "works with zero
  * keys, upgrades when configured" philosophy:
  *   - heuristic (default): deterministic interest-keyword scoring. Always runs.
- *   - llm (ANTHROPIC_API_KEY set): Claude (claude-opus-4-8) reasons over the
+ *   - llm (OPENROUTER_API_KEY set): an LLM via OpenRouter (default model
+ *     deepseek/deepseek-v4-pro, override with OPENROUTER_MODEL) reasons over the
  *     catalog and returns which pieces to unlock and why. Falls back to the
  *     heuristic on any error so the demo never breaks.
  */
@@ -94,19 +95,28 @@ export function heuristicDecide(
     .sort((a, b) => b.score - a.score);
 }
 
+/** Default model on OpenRouter; override with OPENROUTER_MODEL. */
+const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-pro";
+
 /**
- * Ask Claude which pieces to unlock. Returns null when no API key is configured
- * or the call fails, so callers fall back to the heuristic. The model only
- * chooses and explains; it never moves money.
+ * Ask an LLM (via OpenRouter) which pieces to unlock. Returns null when no API
+ * key is configured or the call fails, so callers fall back to the heuristic.
+ * The model only chooses and explains; it never moves money.
  */
 async function llmDecide(
   pieces: Piece[],
   config: ReadingAgentConfig,
 ): Promise<ReadingDecision[] | null> {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
 
   try {
-    const { default: Anthropic } = await import("@anthropic-ai/sdk");
+    const { default: OpenAI } = await import("openai");
+
+    const client = new OpenAI({
+      apiKey,
+      baseURL: "https://openrouter.ai/api/v1",
+    });
 
     const catalog = pieces.map((p) => ({
       pieceId: p.id,
@@ -116,77 +126,55 @@ async function llmDecide(
       contributors: p.contributors.map((c) => `${c.role} (${c.targetChain})`),
     }));
 
-    // Raw JSON Schema (the workspace's zod v3 doesn't match the SDK's zod helper).
-    const schema = {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        decisions: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              pieceId: { type: "string" },
-              unlock: { type: "boolean" },
-              reason: { type: "string" },
-              score: { type: "number" },
-            },
-            required: ["pieceId", "unlock", "reason", "score"],
-          },
-        },
-      },
-      required: ["decisions"],
-    };
-
-    const client = new Anthropic();
-    const response = await client.messages.create({
-      model: "claude-opus-4-8",
-      max_tokens: 4000,
-      thinking: { type: "adaptive" },
-      system:
-        "You are an autonomous reading agent for SplitStream, a per-piece creator " +
-        "monetization platform on Circle's Arc L1. You decide which pieces of " +
-        "content are worth unlocking (paying a few cents for) given the reader's " +
-        "interests and budget. Paying unlocks the piece and instantly splits the " +
-        "payment across its creators. Prefer pieces that match the interests; you " +
-        "may sample an off-interest piece if it looks valuable and budget remains. " +
-        "Assign each piece a score from 0 (skip) to 1 (must read) and a one-line reason.",
+    const completion = await client.chat.completions.create({
+      model: process.env.OPENROUTER_MODEL ?? DEFAULT_OPENROUTER_MODEL,
+      response_format: { type: "json_object" },
       messages: [
+        {
+          role: "system",
+          content:
+            "You are an autonomous reading agent for SplitStream, a per-piece creator " +
+            "monetization platform on Circle's Arc L1. You decide which pieces of " +
+            "content are worth unlocking (paying a few cents for) given the reader's " +
+            "interests and budget. Paying unlocks the piece and instantly splits the " +
+            "payment across its creators. Prefer pieces that match the interests; you " +
+            "may sample an off-interest piece if it looks valuable and budget remains. " +
+            "Reply with ONLY a JSON object of the form " +
+            '{"decisions":[{"pieceId":string,"unlock":boolean,"reason":string,"score":number}]} ' +
+            "where score is 0 (skip) to 1 (must read) and reason is one line. " +
+            "Return a decision for every piece in the catalog.",
+        },
         {
           role: "user",
           content:
             `Interests: ${config.interests.join(", ") || "(none specified)"}\n` +
             `Session budget: $${config.budgetUSDC} USDC\n` +
             `Unlock at most ${config.maxUnlocks} pieces.\n\n` +
-            `Catalog:\n${JSON.stringify(catalog, null, 2)}\n\n` +
-            "Return a decision for every piece in the catalog.",
+            `Catalog:\n${JSON.stringify(catalog, null, 2)}`,
         },
       ],
-      output_config: { format: { type: "json_schema", schema } },
-    } as never);
+    });
 
-    const textBlock = (response as { content: Array<{ type: string; text?: string }> }).content.find(
-      (b) => b.type === "text" && typeof b.text === "string",
-    );
-    if (!textBlock?.text) return null;
+    const text = completion.choices[0]?.message?.content;
+    if (!text) return null;
 
-    const parsed = JSON.parse(textBlock.text) as {
-      decisions: Array<{ pieceId: string; unlock: boolean; reason: string; score: number }>;
+    const parsed = JSON.parse(text) as {
+      decisions?: Array<{ pieceId: string; unlock: boolean; reason: string; score: number }>;
     };
+    if (!Array.isArray(parsed.decisions)) return null;
 
     const byId = new Map(pieces.map((p) => [p.id, p]));
     return parsed.decisions
-      .filter((d) => byId.has(d.pieceId))
+      .filter((d) => d && byId.has(d.pieceId))
       .map((d): ReadingDecision => {
         const piece = byId.get(d.pieceId)!;
         return {
           pieceId: d.pieceId,
           title: piece.title,
           priceUSDC: formatUsdc6(piece.price6),
-          unlock: d.unlock,
-          reason: d.reason,
-          score: d.score,
+          unlock: Boolean(d.unlock),
+          reason: typeof d.reason === "string" ? d.reason : "",
+          score: typeof d.score === "number" ? d.score : 0,
         };
       })
       .sort((a, b) => b.score - a.score);

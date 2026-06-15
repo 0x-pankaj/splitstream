@@ -38,7 +38,7 @@ describe("reading agent (heuristic)", () => {
       1_000_000,
     );
 
-    expect(result.mode).toBe("heuristic"); // no ANTHROPIC_API_KEY in tests
+    expect(result.mode).toBe("heuristic"); // no OPENROUTER_API_KEY in tests
     expect(result.unlocked).toBeGreaterThanOrEqual(1);
     // Each unlock fanned out across the piece's contributors.
     expect(result.unlocks[0]!.contributors.length).toBe(3);
