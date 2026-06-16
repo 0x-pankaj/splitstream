@@ -77,6 +77,8 @@ export class Store {
 
   /** x402 single-use payment challenges, keyed by nonce (anti-replay). */
   x402Challenges = new Map<string, X402Challenge>();
+  /** On-chain payment tx hashes already redeemed (anti-replay for live x402). */
+  x402SettledTxHashes = new Set<string>();
 
   /** Simulated per-tenant vault balances (used when on-chain is disabled). */
   tenantBalances6 = new Map<string, bigint>();
@@ -324,6 +326,14 @@ export class Store {
     if (now >= c.expiresAt) return { ok: false, reason: "payment challenge expired" };
     c.consumed = true;
     return { ok: true, challenge: c };
+  }
+
+  /** Mark an on-chain payment tx as redeemed; false if it was already used. */
+  redeemTxHash(txHash: string): boolean {
+    const key = txHash.toLowerCase();
+    if (this.x402SettledTxHashes.has(key)) return false;
+    this.x402SettledTxHashes.add(key);
+    return true;
   }
 
   // ── Audit log ────────────────────────────────────────────────────────────────

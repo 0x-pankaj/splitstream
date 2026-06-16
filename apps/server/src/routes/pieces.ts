@@ -17,13 +17,16 @@ import {
   CallPieceSchema,
   CreatePieceSchema,
   PayPieceSchema,
+  computeSplit,
   formatUsdc6,
   parseUsdc6,
   type Piece,
 } from "@arcane/shared";
 import type { Store } from "../db/store.js";
+import { config } from "../config.js";
 import { authenticate } from "../auth/apiKeys.js";
-import { callPaidService, payForPiece, whitelistContributors } from "../services/splitEngine.js";
+import { callPaidService, payForPiece, proxyUpstream, whitelistContributors } from "../services/splitEngine.js";
+import { payContributorsOnArc } from "../services/x402Settle.js";
 import {
   issueChallenge,
   decodePaymentHeader,
@@ -183,13 +186,6 @@ export function pieceRoutes(store: Store): Hono {
         );
       }
 
-      // Step 3 — settle the split to the API's owners and proxy the upstream call.
-      const result = await callPaidService(store, piece, {
-        payer: verified.payer ?? parsed.data.payer,
-        agentId: parsed.data.agentId,
-        input: parsed.data.input,
-      });
-
       c.header(
         "x-payment-response",
         encodePaymentResponse({
@@ -199,7 +195,38 @@ export function pieceRoutes(store: Store): Hono {
           payer: verified.payer,
         }),
       );
-      return c.json({ ok: true, paid: true, ...result }, 200);
+
+      // Step 3 — settle the split to the API's owners and proxy the upstream call.
+      if (config.liveX402) {
+        // REAL on-chain settlement: pay each contributor real USDC on Arc, then
+        // proxy. The agent's payment was already verified on-chain in step 2.
+        const shares6 = computeSplit(piece.price6, piece.contributors);
+        const payments = await payContributorsOnArc(piece.contributors, shares6);
+        store.recordUnlock(piece.id, piece.price6);
+        const upstream = await proxyUpstream(piece, parsed.data.input);
+        const updated = store.getPiece(piece.id)!;
+        return c.json(
+          {
+            ok: true,
+            paid: true,
+            mode: "live-arc",
+            settlementTx: verified.transaction,
+            payer: verified.payer,
+            payments,
+            upstream,
+            pieceUnlocks: updated.unlocks,
+            pieceTotalPaid: formatUsdc6(updated.totalPaid6),
+          },
+          200,
+        );
+      }
+
+      const result = await callPaidService(store, piece, {
+        payer: verified.payer ?? parsed.data.payer,
+        agentId: parsed.data.agentId,
+        input: parsed.data.input,
+      });
+      return c.json({ ok: true, paid: true, mode: "mirror", ...result }, 200);
     } catch (err) {
       const { body, status } = errorResponse(err);
       return c.json(body, status);

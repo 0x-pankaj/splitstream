@@ -140,9 +140,7 @@ credential, and proxies the call.
 ```
 
 The issued **nonce is single-use** — replaying a proof is rejected (402), so a
-paid call can't be reused. Mirror mode gates on the nonce (real anti-replay);
-the on-chain settlement check is the `verifyOnChain` seam in `services/x402.ts`
-for live mode. Try the whole handshake (server up on :8787):
+paid call can't be reused. Try the whole handshake (server up on :8787):
 
 ```bash
 pnpm --filter @arcane/server x402:call            # → 402 → pay → 200 + result → replay blocked
@@ -150,6 +148,22 @@ pnpm --filter @arcane/server x402:call            # → 402 → pay → 200 + re
 
 The one-click web button (`pieces.callApi`) is a bundled convenience path over
 the same engine; the x402 HTTP endpoint is the interoperable, agent-facing one.
+
+### Real settlement on Arc (LIVE_X402)
+
+With `LIVE_X402=true` + a funded relayer, the flow settles **real USDC on Arc
+Testnet** (chain `5042002`):
+
+- **Money in** — `verifyArcUsdcPayment` (`services/x402Settle.ts`) reads the Arc
+  tx receipt and confirms a real USDC `Transfer` to the platform payTo for ≥ the
+  price before anything is served; the tx hash is redeemed single-use. *(Verified
+  live against Arc RPC — a nonexistent tx is correctly rejected.)*
+- **Money out** — `payContributorsOnArc` has the relayer `transfer` each owner
+  their `computeSplit` share in real USDC on Arc; the response returns real Arc
+  tx hashes you can open on the explorer.
+
+Mirror mode (no `LIVE_X402`) keeps the nonce-gated simulated path so the demo is
+always keyless. Full funded walkthrough: [`LIVE_X402_RUNBOOK.md`](./LIVE_X402_RUNBOOK.md).
 
 ## The split engine (reuses a proven Arc settlement spine)
 

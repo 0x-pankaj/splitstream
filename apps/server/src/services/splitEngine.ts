@@ -94,25 +94,27 @@ export interface ServiceCallResult {
 const UPSTREAM_TIMEOUT_MS = 10_000;
 const MAX_BODY_CHARS = 20_000;
 
+/** Upstream response shape returned by the proxy. */
+export interface UpstreamResult {
+  ok: boolean;
+  status: number;
+  body: unknown;
+  error?: string;
+}
+
 /**
- * Pay for ONE call to an "api" piece, then proxy the upstream request and return
- * its response — the x402 / pay-per-call flow an agent uses. Payment (and the
- * cross-chain split to the API's owners) happens first via payForPiece; only
- * then is the upstream called. Network/HTTP failures are reported, not thrown,
- * so the caller always learns the payment settled.
+ * Proxy ONE call to a paid API's upstream endpoint, injecting the seller's
+ * credential server-side (the caller never sees the secret). Used by both the
+ * mirror call path and the live x402 settlement path. Never throws — network/HTTP
+ * failures are returned as a non-ok result.
  */
-export async function callPaidService(
-  store: Store,
+export async function proxyUpstream(
   piece: Piece,
-  opts: { payer?: string; agentId?: string; input?: Record<string, unknown> } = {},
-  now = Date.now(),
-): Promise<ServiceCallResult> {
+  input?: Record<string, unknown>,
+): Promise<UpstreamResult> {
   if (piece.kind !== "api" || !piece.endpoint) {
     throw errors.internal(`Piece ${piece.id} is not a callable API service`);
   }
-
-  const unlock = await payForPiece(store, piece, { payer: opts.payer, agentId: opts.agentId }, now);
-
   const method = piece.httpMethod ?? "GET";
 
   // Inject the seller's upstream credential (if any). The secret lives only here,
@@ -139,7 +141,7 @@ export async function callPaidService(
       method,
       signal: controller.signal,
       headers: Object.keys(headers).length > 0 ? headers : undefined,
-      body: method === "POST" ? JSON.stringify(opts.input ?? {}) : undefined,
+      body: method === "POST" ? JSON.stringify(input ?? {}) : undefined,
     });
     const raw = (await res.text()).slice(0, MAX_BODY_CHARS);
     let body: unknown = raw;
@@ -148,15 +150,32 @@ export async function callPaidService(
     } catch {
       /* not JSON — keep the raw text */
     }
-    return { unlock, upstream: { ok: res.ok, status: res.status, body } };
+    return { ok: res.ok, status: res.status, body };
   } catch (err) {
-    return {
-      unlock,
-      upstream: { ok: false, status: 0, body: null, error: err instanceof Error ? err.message : "upstream call failed" },
-    };
+    return { ok: false, status: 0, body: null, error: err instanceof Error ? err.message : "upstream call failed" };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Pay for ONE call to an "api" piece, then proxy the upstream request and return
+ * its response — the bundled pay-per-call path (mirror / one-click UI). Payment
+ * (and the cross-chain split to the API's owners) happens first via payForPiece;
+ * only then is the upstream called.
+ */
+export async function callPaidService(
+  store: Store,
+  piece: Piece,
+  opts: { payer?: string; agentId?: string; input?: Record<string, unknown> } = {},
+  now = Date.now(),
+): Promise<ServiceCallResult> {
+  if (piece.kind !== "api" || !piece.endpoint) {
+    throw errors.internal(`Piece ${piece.id} is not a callable API service`);
+  }
+  const unlock = await payForPiece(store, piece, { payer: opts.payer, agentId: opts.agentId }, now);
+  const upstream = await proxyUpstream(piece, opts.input);
+  return { unlock, upstream };
 }
 
 /**

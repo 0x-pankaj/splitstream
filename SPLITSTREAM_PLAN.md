@@ -144,6 +144,13 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
   with `X-PAYMENT` → verify (anti-replay + `verifyOnChain` live seam), settle
   split, proxy, 200 + `X-PAYMENT-RESPONSE`. Demo: `x402:call` (402→pay→serve→
   replay-blocked). tRPC `pieces.callApi` stays the one-click UI path.
+- **Real on-chain x402 settlement on Arc (`LIVE_X402`)** — `services/x402Settle.ts`:
+  `verifyArcUsdcPayment` reads the Arc tx receipt and confirms a real USDC
+  Transfer to payTo ≥ price (tx-hash single-use anti-replay); `payContributorsOnArc`
+  has the relayer transfer each owner real USDC on Arc. payTo (live) = relayer.
+  Verified LIVE against Arc RPC (chainId 5042002; nonexistent tx rejected). Mirror
+  unchanged. Funded walkthrough: LIVE_X402_RUNBOOK.md. Gap: encrypt secrets at
+  rest + cross-chain payout for non-EVM contributors (Solana skipped on Arc path).
 - **Tests: 50/50 green. Typecheck clean across all packages. Web builds clean.**
 
 **Earlier (session 1) detail:**

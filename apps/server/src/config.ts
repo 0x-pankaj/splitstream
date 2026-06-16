@@ -52,6 +52,14 @@ export interface AppConfig {
    */
   liveGateway: boolean;
   /**
+   * When true (env LIVE_X402=true) the x402 paid-call flow settles for REAL on
+   * Arc: the agent's USDC payment to the relayer is verified on-chain before the
+   * call is served, and each contributor is paid their split via a real USDC
+   * transfer on Arc. Requires a funded relayer key. Without it, x402 runs in
+   * mirror mode (single-use nonce gating, simulated split) so the demo always works.
+   */
+  liveX402: boolean;
+  /**
    * Live mode wires real on-chain Arc reads/writes and (when a kit key is set)
    * real Circle App Kit rails. Without a relayer key + vault address we run in
    * simulated mode so the product is always demoable.
@@ -77,6 +85,7 @@ export function loadConfig(): AppConfig {
     feePolicy: DEFAULT_FEE_POLICY,
     liveBridge: (env("LIVE_BRIDGE") === "true" || env("LIVE_BRIDGE") === "1") && Boolean(relayerPrivateKey),
     liveGateway: (env("LIVE_GATEWAY") === "true" || env("LIVE_GATEWAY") === "1") && Boolean(relayerPrivateKey),
+    liveX402: (env("LIVE_X402") === "true" || env("LIVE_X402") === "1") && Boolean(relayerPrivateKey),
     onchainEnabled: Boolean(relayerPrivateKey && vaultAddress),
   };
 }

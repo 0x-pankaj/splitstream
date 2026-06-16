@@ -24,6 +24,8 @@ import { ARC_TESTNET, USDC, formatUsdc6 } from "@arcane/shared";
 import { config } from "../config.js";
 import type { Store } from "../db/store.js";
 import type { Piece } from "@arcane/shared";
+import { relayerAccount } from "../chain/arc.js";
+import { verifyArcUsdcPayment } from "./x402Settle.js";
 
 /** x402 protocol version this facilitator implements. */
 export const X402_VERSION = 1;
@@ -35,8 +37,13 @@ const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 /** Demo settlement address used when no platform fee wallet is configured (mirror mode). */
 const DEMO_PAY_TO = "0x5pL175734e000000000000000000000000Ca7e".replace(/[^0-9a-fA-F]/g, "0");
 
-/** Where collected x402 payments land before the split is paid out. */
+/**
+ * Where the agent pays. In live x402 mode this MUST be an address the platform
+ * controls so it can verify receipt and pay out the split — the relayer. In
+ * mirror mode it's the configured fee wallet or a demo address.
+ */
 function settlementPayTo(): string {
+  if (config.liveX402 && relayerAccount) return relayerAccount.address;
   return config.platformFeeWallet ?? config.vaultAddress ?? DEMO_PAY_TO;
 }
 
@@ -142,17 +149,26 @@ export function encodePaymentResponse(result: {
 }
 
 /**
- * Live-mode on-chain verification seam. In mirror mode this is a no-op pass: the
- * issued single-use nonce already prevents replay. A live deployment verifies
- * that `authorization` is a real USDC settlement to `payTo` for `amount6` on Arc
- * (e.g. an EIP-3009 transferWithAuthorization or a confirmed transfer tx).
+ * On-chain verification. In mirror mode the issued single-use nonce is the gate
+ * (no real funds move). When LIVE_X402 is enabled, this verifies a REAL USDC
+ * payment on Arc: the `authorization` must be a tx hash whose receipt shows a
+ * USDC transfer of >= `amount6` to `payTo`, and that tx hash is redeemed
+ * single-use so one payment can't fund two calls.
  */
-async function verifyOnChain(_payload: PaymentPayload, _amount6: bigint, _payTo: string): Promise<boolean> {
-  if (!config.onchainEnabled) return true; // mirror mode: nonce redemption is the gate
-  // Live seam: with a relayer configured, verify the settlement reference on Arc.
-  // Kept permissive here so the flow stays demoable; wire real verification when
-  // an x402 on-chain settlement path is provisioned. Returns true = accepted.
-  return true;
+async function verifyOnChain(
+  store: Store,
+  payload: PaymentPayload,
+  amount6: bigint,
+  payTo: string,
+): Promise<{ ok: boolean; reason?: string; from?: string | null }> {
+  if (!config.liveX402) return { ok: true }; // mirror: nonce redemption is the gate
+
+  const txHash = payload.payload.authorization;
+  if (!txHash) return { ok: false, reason: "live x402 requires a settlement tx hash in authorization" };
+  if (!store.redeemTxHash(txHash)) return { ok: false, reason: "payment tx already redeemed" };
+
+  const result = await verifyArcUsdcPayment(txHash, payTo, amount6);
+  return { ok: result.ok, reason: result.reason, from: result.from };
 }
 
 export interface VerifiedPayment {
@@ -187,10 +203,11 @@ export async function verifyPayment(
   if (challenge.pieceId !== piece.id) return fail("payment nonce is for a different resource");
   if (challenge.amount6 !== piece.price6) return fail("price changed since challenge was issued");
 
-  const onchainOk = await verifyOnChain(payload, challenge.amount6, challenge.payTo);
-  if (!onchainOk) return fail("on-chain settlement could not be verified");
+  const onchain = await verifyOnChain(store, payload, challenge.amount6, challenge.payTo);
+  if (!onchain.ok) return fail(onchain.reason ?? "on-chain settlement could not be verified");
 
   const transaction =
     payload.payload.authorization ?? `x402-${challenge.nonce.slice(2, 18)}`;
-  return { ok: true, payer: payload.payload.from ?? null, transaction, amount6: challenge.amount6 };
+  const payer = onchain.from ?? payload.payload.from ?? null;
+  return { ok: true, payer, transaction, amount6: challenge.amount6 };
 }
