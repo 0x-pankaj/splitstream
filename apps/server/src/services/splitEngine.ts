@@ -114,13 +114,31 @@ export async function callPaidService(
   const unlock = await payForPiece(store, piece, { payer: opts.payer, agentId: opts.agentId }, now);
 
   const method = piece.httpMethod ?? "GET";
+
+  // Inject the seller's upstream credential (if any). The secret lives only here,
+  // server-side: it is attached to the outbound request and never returned to the
+  // paying agent — so the agent buys access without ever seeing the key.
+  let url = piece.endpoint;
+  const headers: Record<string, string> = {};
+  if (method === "POST") headers["content-type"] = "application/json";
+  if (piece.auth) {
+    const { type, name, secret } = piece.auth;
+    if (type === "bearer") {
+      headers["authorization"] = `Bearer ${secret}`;
+    } else if (type === "header" && name) {
+      headers[name] = secret;
+    } else if (type === "query" && name) {
+      url += `${url.includes("?") ? "&" : "?"}${encodeURIComponent(name)}=${encodeURIComponent(secret)}`;
+    }
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
   try {
-    const res = await fetch(piece.endpoint, {
+    const res = await fetch(url, {
       method,
       signal: controller.signal,
-      headers: method === "POST" ? { "content-type": "application/json" } : undefined,
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
       body: method === "POST" ? JSON.stringify(opts.input ?? {}) : undefined,
     });
     const raw = (await res.text()).slice(0, MAX_BODY_CHARS);

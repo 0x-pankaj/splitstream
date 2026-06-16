@@ -328,6 +328,7 @@ export const appRouter = router({
             contributors: input.contributors,
             endpoint: input.endpoint,
             httpMethod: input.httpMethod,
+            auth: input.auth,
           });
           whitelistContributors(ctx.store, piece);
           return serializePiece(piece);

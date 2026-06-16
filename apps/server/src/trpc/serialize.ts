@@ -25,6 +25,9 @@ export function serializePiece(p: Piece) {
     chains: [...new Set(p.contributors.map((c) => c.targetChain))],
     endpoint: p.endpoint ?? null,
     httpMethod: p.httpMethod ?? null,
+    // Reveal that the API is authenticated and how — but NEVER the secret.
+    authenticated: Boolean(p.auth),
+    authType: p.auth?.type ?? null,
     createdAt: p.createdAt,
     unlocks: p.unlocks,
     totalPaid: formatUsdc6(p.totalPaid6),

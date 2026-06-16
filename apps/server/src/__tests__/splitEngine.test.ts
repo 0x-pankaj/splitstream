@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { computeSplit, parseUsdc6, type Contributor } from "@arcane/shared";
 import { Store } from "../db/store.js";
 import { seedDemo, DEMO_TENANT_ID, DEMO_PIECE_ID } from "../db/seed.js";
-import { payForPiece } from "../services/splitEngine.js";
+import { payForPiece, callPaidService } from "../services/splitEngine.js";
+import { serializePiece } from "../trpc/serialize.js";
 import { resetCursors } from "../services/solverMesh.js";
 import { resetAgentWindows } from "../services/agentTreasury.js";
 
@@ -94,5 +95,61 @@ describe("payForPiece (read → pay → cross-chain split)", () => {
     const updated = store.getPiece(DEMO_PIECE_ID)!;
     expect(updated.unlocks).toBe(2);
     expect(updated.totalPaid6).toBe(parseUsdc6("0.10"));
+  });
+});
+
+describe("authenticated API piece — credential injection without leak", () => {
+  it("never serializes the upstream secret", () => {
+    const store = freshStore();
+    const piece = store.createPiece({
+      publisherTenantId: DEMO_TENANT_ID,
+      title: "Secret API",
+      kind: "api",
+      price6: parseUsdc6("0.02"),
+      endpoint: "https://example.test/data",
+      httpMethod: "GET",
+      auth: { type: "bearer", secret: "TOP_SECRET_KEY" },
+      contributors: [
+        { role: "owner", address: "0x1111111111111111111111111111111111111111", targetChain: "base", splitBps: 10000 },
+      ],
+    });
+    const view = JSON.stringify(serializePiece(piece));
+    expect(view).not.toContain("TOP_SECRET_KEY");
+    // ...but the view does disclose that it's authenticated, and how.
+    expect(serializePiece(piece).authenticated).toBe(true);
+    expect(serializePiece(piece).authType).toBe("bearer");
+  });
+
+  it("injects the secret into the upstream call (the agent never sees it)", async () => {
+    const store = freshStore();
+    // Stub fetch to capture the outbound request and echo the auth header back.
+    const calls: Array<{ url: string; headers: Record<string, string> }> = [];
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), headers: (init?.headers as Record<string, string>) ?? {} });
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const piece = store.createPiece({
+        publisherTenantId: DEMO_TENANT_ID,
+        title: "Secret API",
+        kind: "api",
+        price6: parseUsdc6("0.02"),
+        endpoint: "https://example.test/data",
+        httpMethod: "GET",
+        auth: { type: "bearer", secret: "TOP_SECRET_KEY" },
+        contributors: [
+          { role: "owner", address: "0x1111111111111111111111111111111111111111", targetChain: "base", splitBps: 10000 },
+        ],
+      });
+      const result = await callPaidService(store, piece, { payer: "agent" }, 1_000_000);
+      // The upstream received the injected Bearer credential...
+      expect(calls[0]!.headers["authorization"]).toBe("Bearer TOP_SECRET_KEY");
+      // ...and the result returned to the agent never contains the secret.
+      expect(JSON.stringify(result.upstream)).not.toContain("TOP_SECRET_KEY");
+      expect(result.upstream.ok).toBe(true);
+    } finally {
+      globalThis.fetch = orig;
+    }
   });
 });

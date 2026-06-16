@@ -157,6 +157,27 @@ export const CreatePieceSchema = z
     /** Required when kind === "api": the upstream endpoint to proxy on payment. */
     endpoint: httpUrl.optional(),
     httpMethod: z.enum(["GET", "POST"]).default("GET"),
+    /**
+     * Optional upstream credential for an authenticated API. Stored server-side
+     * only, injected on the proxy call, never returned to clients — so a paying
+     * agent gets access without ever seeing the key.
+     */
+    auth: z
+      .object({
+        type: z.enum(["bearer", "header", "query"]),
+        name: z.string().min(1).max(120).optional(),
+        secret: z.string().min(1).max(4096),
+      })
+      .optional()
+      .superRefine((a, ctx) => {
+        if (a && (a.type === "header" || a.type === "query") && !a.name) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["name"],
+            message: `auth.name is required for type "${a.type}"`,
+          });
+        }
+      }),
   })
   .superRefine((piece, ctx) => {
     const sum = piece.contributors.reduce((acc, c) => acc + c.splitBps, 0);

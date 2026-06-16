@@ -13,6 +13,7 @@ import type {
   AuditEntry,
   Contributor,
   Piece,
+  PieceAuth,
   PieceKind,
   RoutedPayout,
   Solver,
@@ -245,6 +246,7 @@ export class Store {
     contributors: Contributor[];
     endpoint?: string;
     httpMethod?: "GET" | "POST";
+    auth?: PieceAuth;
     createdAt?: string;
   }): Piece {
     const piece: Piece = {
@@ -256,6 +258,7 @@ export class Store {
       contributors: input.contributors,
       endpoint: input.endpoint,
       httpMethod: input.httpMethod,
+      auth: input.auth,
       createdAt: input.createdAt ?? new Date().toISOString(),
       unlocks: 0,
       totalPaid6: 0n,

@@ -122,6 +122,9 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
   const [price, setPrice] = useState("0.05");
   const [endpoint, setEndpoint] = useState("");
   const [method, setMethod] = useState<"GET" | "POST">("GET");
+  const [authType, setAuthType] = useState<"none" | "bearer" | "header" | "query">("none");
+  const [authName, setAuthName] = useState("");
+  const [authSecret, setAuthSecret] = useState("");
   const [rows, setRows] = useState<Row[]>([
     { role: "creator", address: "", targetChain: "base", percent: "100" },
   ]);
@@ -146,12 +149,20 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
         targetChain: r.targetChain,
         splitBps: Math.round((Number(r.percent) || 0) * 100),
       }));
+      const auth =
+        isApi && authType !== "none" && authSecret.trim()
+          ? {
+              type: authType,
+              secret: authSecret.trim(),
+              ...(authType === "bearer" ? {} : { name: authName.trim() }),
+            }
+          : undefined;
       const piece = await trpc.pieces.create.mutate({
         title: title.trim(),
         kind,
         priceUSDC: price.trim(),
         contributors,
-        ...(isApi ? { endpoint: endpoint.trim(), httpMethod: method } : {}),
+        ...(isApi ? { endpoint: endpoint.trim(), httpMethod: method, ...(auth ? { auth } : {}) } : {}),
       });
       setOkId(piece.id);
       onPublished?.(piece.id);
@@ -206,6 +217,31 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
               <option>GET</option><option>POST</option>
             </select>
           </label>
+        </div>
+      ) : null}
+
+      {isApi ? (
+        <div className="mt-3 rounded-lg border border-slate-700/60 bg-slate-900/30 p-3">
+          <div className="mb-2 text-xs text-slate-400">
+            Upstream auth — your API key is stored server-side and injected per call.
+            <span className="text-slate-500"> The paying agent never sees it (access without KYC).</span>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <select value={authType} onChange={(e) => setAuthType(e.target.value as typeof authType)}
+              className="rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200">
+              <option value="none">no auth</option>
+              <option value="bearer">Bearer token</option>
+              <option value="header">custom header</option>
+              <option value="query">query param</option>
+            </select>
+            <input value={authName} onChange={(e) => setAuthName(e.target.value)}
+              placeholder={authType === "query" ? "param name (e.g. apikey)" : authType === "header" ? "header (e.g. X-API-Key)" : "—"}
+              disabled={authType === "none" || authType === "bearer"}
+              className="mono rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200 disabled:opacity-40" />
+            <input value={authSecret} onChange={(e) => setAuthSecret(e.target.value)} type="password"
+              placeholder="secret / API key" disabled={authType === "none"}
+              className="mono rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200 disabled:opacity-40" />
+          </div>
         </div>
       ) : null}
 
@@ -361,7 +397,10 @@ export function PieceCard({ piece, onUnlocked }: { piece: Piece; onUnlocked?: ()
     <div className="card flex flex-col p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <Pill text={isApi ? "paid API" : piece.kind} tone={isApi ? "amber" : "slate"} />
+          <span className="flex items-center gap-1.5">
+            <Pill text={isApi ? "paid API" : piece.kind} tone={isApi ? "amber" : "slate"} />
+            {isApi && piece.authenticated ? <Pill text={`🔒 ${piece.authType}`} tone="emerald" /> : null}
+          </span>
           <h3 className="mt-2 text-lg font-semibold leading-snug text-slate-100">{piece.title}</h3>
           {isApi && piece.endpoint ? (
             <div className="mono mt-1 truncate text-[11px] text-slate-500">{piece.httpMethod ?? "GET"} {piece.endpoint}</div>

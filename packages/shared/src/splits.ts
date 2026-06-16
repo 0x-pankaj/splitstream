@@ -22,6 +22,22 @@ export type PieceKind = "article" | "photo" | "song" | "podcast" | "api";
 export const BPS_DENOMINATOR = 10_000;
 
 /**
+ * How the platform authenticates to a seller's upstream API on the paid proxy
+ * call. The secret is stored server-side only and is NEVER returned to clients —
+ * the paying agent gets the API's *response*, never its credential. This is what
+ * lets an AI agent buy access to an authenticated API with no account/KYC of its
+ * own: SplitStream holds the key and injects it; the agent just pays.
+ */
+export interface PieceAuth {
+  /** bearer: Authorization: Bearer <secret>; header: a custom header; query: a URL param. */
+  type: "bearer" | "header" | "query";
+  /** Header name (type "header") or query-param name (type "query"). Unused for "bearer". */
+  name?: string;
+  /** The upstream credential. Write-only — stripped from every serialized view. */
+  secret: string;
+}
+
+/**
  * One contributor to a piece (writer, editor, photographer, …) and the share of
  * each reader payment they receive, on the chain they want to be paid on.
  */
@@ -49,6 +65,8 @@ export interface Piece {
   endpoint?: string;
   /** For kind "api": HTTP method used to call `endpoint` (default GET). */
   httpMethod?: "GET" | "POST";
+  /** For kind "api": optional upstream credential the platform injects per call. */
+  auth?: PieceAuth;
   /** Everyone who gets paid when the piece is unlocked. Shares sum to 10000 bps. */
   contributors: Contributor[];
   createdAt: string;

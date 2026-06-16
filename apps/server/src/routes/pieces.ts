@@ -36,6 +36,8 @@ function pieceView(piece: Piece) {
     contributors: piece.contributors,
     endpoint: piece.endpoint ?? null,
     httpMethod: piece.httpMethod ?? null,
+    authenticated: Boolean(piece.auth),
+    authType: piece.auth?.type ?? null,
     createdAt: piece.createdAt,
     unlocks: piece.unlocks,
     totalPaidUSDC: formatUsdc6(piece.totalPaid6),
@@ -80,6 +82,7 @@ export function pieceRoutes(store: Store): Hono {
         contributors: parsed.data.contributors,
         endpoint: parsed.data.endpoint,
         httpMethod: parsed.data.httpMethod,
+        auth: parsed.data.auth,
       });
       // Vet contributors up front so the unlock path's compliance check passes.
       whitelistContributors(store, piece);

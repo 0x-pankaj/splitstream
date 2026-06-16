@@ -91,6 +91,33 @@ piece or a paid API. Agents discover and pay via the MCP tools `list_pieces` +
 `call_api`. The payment still splits across chains, so an API with multiple
 owners is paid out automatically.
 
+### Authenticated upstreams — access for AI without KYC
+
+Most real APIs need a key. The seller stores that credential **once** with
+SplitStream; the platform injects it on the proxied call. The paying agent gets
+the API's *response* but **never sees the key** — so an AI agent buys access to
+an authenticated API with no account and no KYC of its own. SplitStream is the
+account; the agent just pays.
+
+```bash
+# SELLER registers an authenticated API (bearer | custom header | query param)
+curl -X POST localhost:8787/api/v1/pieces -H 'content-type: application/json' \
+  -H 'x-api-key: arc_test_sk_demo_0001' \
+  -d '{"title":"Premium Data API","kind":"api","priceUSDC":"0.02",
+       "endpoint":"https://api.yourapp.com/v1/data","httpMethod":"GET",
+       "auth":{"type":"bearer","secret":"sk_live_…"},
+       "contributors":[{"role":"owner","address":"0x…","targetChain":"base","splitBps":10000}]}'
+```
+
+The secret is **write-only**: it's never returned by `pieces.list`, `pieces.get`,
+or the call response — only `authenticated: true` and `authType` are disclosed.
+(Auth types: `bearer` → `Authorization: Bearer <secret>`, `header` → a custom
+header, `query` → a URL parameter.)
+
+> Production note: secrets are stored in the engine's store (in-memory / SQLite)
+> for the hackathon. A real deployment should encrypt them at rest in a secrets
+> vault with rotation — the injection point (`callPaidService`) stays the same.
+
 ## The split engine (reuses a proven Arc settlement spine)
 
 A piece payment *is* a bulk payout — the contributors are the recipients, their
