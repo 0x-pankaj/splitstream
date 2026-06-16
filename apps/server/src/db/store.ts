@@ -53,6 +53,17 @@ interface VelocityState {
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
+/** A single-use x402 payment challenge issued for one paid API call. */
+export interface X402Challenge {
+  nonce: string;
+  pieceId: string;
+  amount6: bigint;
+  payTo: string;
+  /** epoch ms after which the challenge is no longer valid. */
+  expiresAt: number;
+  consumed: boolean;
+}
+
 export class Store {
   tenants = new Map<string, Tenant>();
   apiKeys = new Map<string, ApiKey>();
@@ -63,6 +74,9 @@ export class Store {
 
   /** SplitStream: monetizable content pieces, keyed by piece id. */
   pieces = new Map<string, Piece>();
+
+  /** x402 single-use payment challenges, keyed by nonce (anti-replay). */
+  x402Challenges = new Map<string, X402Challenge>();
 
   /** Simulated per-tenant vault balances (used when on-chain is disabled). */
   tenantBalances6 = new Map<string, bigint>();
@@ -286,6 +300,30 @@ export class Store {
     if (!piece) return;
     piece.unlocks += 1;
     piece.totalPaid6 += price6;
+  }
+
+  // ── x402 payment challenges ──────────────────────────────────────────────────
+
+  /** Register a freshly-issued x402 challenge so its nonce can be redeemed once. */
+  putX402Challenge(c: X402Challenge): void {
+    this.x402Challenges.set(c.nonce, c);
+  }
+
+  /**
+   * Atomically redeem a challenge by nonce: returns it only if it exists, is
+   * unexpired, and is unconsumed — and marks it consumed so it can never be
+   * replayed. Returns a reason string on failure.
+   */
+  redeemX402Challenge(
+    nonce: string,
+    now: number,
+  ): { ok: true; challenge: X402Challenge } | { ok: false; reason: string } {
+    const c = this.x402Challenges.get(nonce);
+    if (!c) return { ok: false, reason: "unknown or expired payment nonce" };
+    if (c.consumed) return { ok: false, reason: "payment nonce already used" };
+    if (now >= c.expiresAt) return { ok: false, reason: "payment challenge expired" };
+    c.consumed = true;
+    return { ok: true, challenge: c };
   }
 
   // ── Audit log ────────────────────────────────────────────────────────────────

@@ -118,6 +118,39 @@ header, `query` → a URL parameter.)
 > for the hackathon. A real deployment should encrypt them at rest in a secrets
 > vault with rotation — the injection point (`callPaidService`) stays the same.
 
+### The real x402 flow (challenge → pay → prove → serve)
+
+`POST /api/v1/pieces/:id/call` speaks the **x402 "402 Payment Required"**
+protocol, so any x402-native agent pays SplitStream the standard way — no custom
+client. SplitStream is the **facilitator**: it issues the challenge, verifies the
+payment, settles the cross-chain split to the API's owners, injects the upstream
+credential, and proxies the call.
+
+```
+1. POST /pieces/:id/call                       → 402 Payment Required
+   { x402Version, accepts: [{ scheme:"exact", network:"arc-testnet",
+       maxAmountRequired, payTo, asset:<USDC on Arc>, nonce, … }] }
+
+2. (agent pays the USDC amount on Arc)
+
+3. POST /pieces/:id/call  +  X-PAYMENT: <base64 proof carrying the nonce>
+                                               → 200 OK
+   X-PAYMENT-RESPONSE: <base64 { success, transaction, network, payer }>
+   body: { paid:true, unlock:{…split…}, upstream:{ ok, status, body } }
+```
+
+The issued **nonce is single-use** — replaying a proof is rejected (402), so a
+paid call can't be reused. Mirror mode gates on the nonce (real anti-replay);
+the on-chain settlement check is the `verifyOnChain` seam in `services/x402.ts`
+for live mode. Try the whole handshake (server up on :8787):
+
+```bash
+pnpm --filter @arcane/server x402:call            # → 402 → pay → 200 + result → replay blocked
+```
+
+The one-click web button (`pieces.callApi`) is a bundled convenience path over
+the same engine; the x402 HTTP endpoint is the interoperable, agent-facing one.
+
 ## The split engine (reuses a proven Arc settlement spine)
 
 A piece payment *is* a bulk payout — the contributors are the recipients, their

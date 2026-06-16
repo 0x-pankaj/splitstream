@@ -135,7 +135,16 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
   Verified in a real browser (puppeteer): catalog renders both kinds, "Pay &
   call" returned a live upstream result in-page, publish form switches to API
   mode. Verified over HTTP: agent paid $0.01 → owner paid on Base + live FX result.
-- **Tests: 40/40 green. Typecheck clean across all packages. Web builds clean.**
+- **Authenticated-API credential injection** — api pieces gain optional `auth`
+  (bearer/header/query); stored server-side, write-only (never serialized),
+  injected on the proxy call. Agent gets access, never the key (no-KYC mission).
+- **Real x402 challenge-response** (`services/x402.ts`) — `POST /pieces/:id/call`
+  speaks HTTP 402: no `X-PAYMENT` → 402 + PaymentRequirements (scheme "exact",
+  network "arc-testnet", maxAmountRequired, payTo, asset USDC, single-use nonce);
+  with `X-PAYMENT` → verify (anti-replay + `verifyOnChain` live seam), settle
+  split, proxy, 200 + `X-PAYMENT-RESPONSE`. Demo: `x402:call` (402→pay→serve→
+  replay-blocked). tRPC `pieces.callApi` stays the one-click UI path.
+- **Tests: 50/50 green. Typecheck clean across all packages. Web builds clean.**
 
 **Earlier (session 1) detail:**
 - `splits.ts` (types + `computeSplit`), schemas, store pieces, `splitEngine.ts`

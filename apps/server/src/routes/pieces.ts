@@ -24,6 +24,13 @@ import {
 import type { Store } from "../db/store.js";
 import { authenticate } from "../auth/apiKeys.js";
 import { callPaidService, payForPiece, whitelistContributors } from "../services/splitEngine.js";
+import {
+  issueChallenge,
+  decodePaymentHeader,
+  verifyPayment,
+  encodePaymentResponse,
+  X402_NETWORK,
+} from "../services/x402.js";
 
 /** Serialize a piece for JSON responses (bigint → human USDC string). */
 function pieceView(piece: Piece) {
@@ -135,8 +142,12 @@ export function pieceRoutes(store: Store): Hono {
     }
   });
 
-  // Public pay-per-call: pay for one call to an "api" piece and get the upstream
-  // response. This is the x402 flow an AI agent uses to pay for your API.
+  // Pay-per-call via the x402 challenge-response flow — the standard way an AI
+  // agent pays for an API in USDC (no API key, no KYC):
+  //   1. POST with no `X-PAYMENT` header  → 402 Payment Required + requirements.
+  //   2. Pay the USDC amount on Arc, then retry with a base64 `X-PAYMENT` header.
+  //   3. We verify, settle the split to the API's owners, proxy the upstream
+  //      call, and return 200 + an `X-PAYMENT-RESPONSE` header.
   app.post("/:id/call", async (c) => {
     try {
       const piece = store.getPiece(c.req.param("id"));
@@ -156,8 +167,39 @@ export function pieceRoutes(store: Store): Hono {
         );
       }
 
-      const result = await callPaidService(store, piece, parsed.data);
-      return c.json({ ok: true, ...result }, 200);
+      // Step 1 — no payment yet: issue the 402 challenge.
+      const paymentHeader = c.req.header("x-payment");
+      const payload = decodePaymentHeader(paymentHeader);
+      if (!payload) {
+        return c.json(issueChallenge(store, piece), 402);
+      }
+
+      // Step 2 — verify the presented payment (single-use nonce + on-chain seam).
+      const verified = await verifyPayment(store, piece, payload);
+      if (!verified.ok) {
+        return c.json(
+          { ...issueChallenge(store, piece), error: verified.reason ?? "payment verification failed" },
+          402,
+        );
+      }
+
+      // Step 3 — settle the split to the API's owners and proxy the upstream call.
+      const result = await callPaidService(store, piece, {
+        payer: verified.payer ?? parsed.data.payer,
+        agentId: parsed.data.agentId,
+        input: parsed.data.input,
+      });
+
+      c.header(
+        "x-payment-response",
+        encodePaymentResponse({
+          success: true,
+          transaction: verified.transaction,
+          network: X402_NETWORK,
+          payer: verified.payer,
+        }),
+      );
+      return c.json({ ok: true, paid: true, ...result }, 200);
     } catch (err) {
       const { body, status } = errorResponse(err);
       return c.json(body, status);

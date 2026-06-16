@@ -12,6 +12,7 @@
     "seed": "bun run src/db/seed.ts",
     "mcp": "bun run src/mcp/stdio.ts",
     "prove:split": "bun run scripts/prove-split.ts",
+    "x402:call": "bun run scripts/x402-call.ts",
     "prove:cctp": "bun run scripts/bridge-arc-to-base.ts",
     "gateway:deposit": "bun run scripts/gateway-deposit.ts",
     "prove:gateway": "bun run scripts/gateway-spend-arc-to-base.ts",
