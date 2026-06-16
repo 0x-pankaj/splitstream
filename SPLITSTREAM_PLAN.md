@@ -151,6 +151,10 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
   Verified LIVE against Arc RPC (chainId 5042002; nonexistent tx rejected). Mirror
   unchanged. Funded walkthrough: LIVE_X402_RUNBOOK.md. Gap: encrypt secrets at
   rest + cross-chain payout for non-EVM contributors (Solana skipped on Arc path).
+- **PROVEN LIVE on Arc Testnet with real USDC** (`scripts/x402-live-loop.ts`):
+  autonomous buyer wallet → 402 → real USDC payment → on-chain verify → owner
+  paid real USDC; owner balance 0→0.01 on-chain. Tx: fund 0xfe6d4349…, pay
+  0xdf1ff4e1…, payout 0x581fa957…. Relayer (0x8984…7154c) held ~17 USDC.
 - **Tests: 50/50 green. Typecheck clean across all packages. Web builds clean.**
 
 **Earlier (session 1) detail:**

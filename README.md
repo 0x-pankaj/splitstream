@@ -1,6 +1,9 @@
 # SplitStream
 
-**Per-piece creator monetization with instant cross-chain revenue splitting, on Circle's Arc L1.**
+**Pay-per-use for any API or piece of content, settled in real USDC on Arc — with the payment auto-split across every contributor's chain.**
+
+*Like pay.sh's x402 pay-per-call, plus instant cross-chain revenue splitting and
+no-KYC access to authenticated APIs — proven live on Arc Testnet with real USDC.*
 
 A reader — or an AI agent — pays a few cents to unlock a single article, photo,
 or song. That payment is **split instantly across every contributor**, each paid
@@ -30,6 +33,28 @@ Three things, all live and demoable with zero keys:
    worth unlocking within a budget, and pays the creators per piece — agent-to-
    creator commerce, no human in the loop. Also exposed over **MCP** so external
    agents can discover and pay creators.
+
+## Proven live on Arc Testnet — real USDC, nothing mocked
+
+The full x402 loop has been run end-to-end on **Arc Testnet (chain `5042002`)
+with real devnet USDC** — an autonomous agent paid, the payment was verified
+on-chain, and the API owner was paid real USDC. Reproduce it with
+`bun run apps/server/scripts/x402-live-loop.ts` (server in `LIVE_X402` mode).
+
+| Leg | Real Arc Testnet tx |
+|---|---|
+| Fund the buyer agent wallet | [`0xfe6d4349…f7849ebf`](https://testnet.arcscan.app/tx/0xfe6d4349dbaa400fa19007649e6609d15e003e7a022ed3565078e049f7849ebf) |
+| Agent pays for the call (USDC → payTo) | [`0xdf1ff4e1…ea8e5042`](https://testnet.arcscan.app/tx/0xdf1ff4e1f042bad11f64c086b056213cad52f1220a8fd840d11b7f18ea8e5042) |
+| Owner paid the split (real USDC) | [`0x581fa957…e9457f10d`](https://testnet.arcscan.app/tx/0x581fa957698a943b5929c111820383eba9fab84bcc80d4cb6e20d06e9457f10d) |
+
+The agent held its **own wallet** and signed every payment itself — autonomous,
+no human in the loop. Owner USDC balance went `0 → 0.01` on-chain.
+
+> **Two run modes.** `LIVE_X402` settles real USDC on Arc as above (needs a
+> funded relayer). The default **mirror mode** keeps a keyless, zero-setup path
+> (single-use-nonce gated, simulated settlement) so anyone can demo the product
+> instantly. The protocol, split math, credential injection, and live upstream
+> API calls are real in both modes; only the *settlement* is simulated in mirror.
 
 ## Quick start (the demo path — no keys needed)
 
