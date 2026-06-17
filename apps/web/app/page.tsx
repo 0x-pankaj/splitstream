@@ -53,6 +53,9 @@ export default function Storefront() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <Link href="/docs" className="rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700/40">
+            Docs
+          </Link>
           <Link href="/publish" className="rounded-lg bg-indigo-500/90 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-400">
             + Publish
           </Link>
