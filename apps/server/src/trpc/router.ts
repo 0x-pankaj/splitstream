@@ -30,6 +30,7 @@ import { signupTenant } from "../services/onboarding.js";
 import { addTenantRecipient, removeTenantRecipient } from "../services/recipients.js";
 import { callPaidService, payForPiece, whitelistContributors } from "../services/splitEngine.js";
 import { runReadingAgent } from "../services/readingAgent.js";
+import { payLiveForPiece, liveAgentReady } from "../services/liveAgent.js";
 import { CreatePieceSchema, CallPieceSchema, parseUsdc6 } from "@arcane/shared";
 
 /** Arc L1 native USDC system contract (6dp ERC-20 view). */
@@ -337,6 +338,25 @@ export const appRouter = router({
         }
       }),
 
+    /**
+     * Pay for a piece on-chain as the autonomous demo agent — REAL USDC on Arc.
+     * Returns real Arc tx hashes. Only available when LIVE_X402 + funded relayer.
+     */
+    payLive: publicProcedure
+      .input(z.object({ pieceId: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          if (!liveAgentReady()) {
+            throw new Error("Live on-chain mode is off (set LIVE_X402 + a funded relayer & demo agent)");
+          }
+          const piece = ctx.store.getPiece(input.pieceId);
+          if (!piece) throw new Error(`No such piece: ${input.pieceId}`);
+          return await payLiveForPiece(ctx.store, piece);
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
     /** Pay for one call to an "api" piece and return the upstream response. */
     callApi: publicProcedure
       .input(CallPieceSchema.extend({ pieceId: z.string().min(1) }))
@@ -417,6 +437,8 @@ export const appRouter = router({
         chains: [...chains],
         topPieces,
         onchainMode: config.onchainEnabled ? "live" : "simulated",
+        /** When true, the storefront's live-agent button settles real USDC on Arc. */
+        liveAgent: liveAgentReady(),
       };
     }),
   }),

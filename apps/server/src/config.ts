@@ -35,6 +35,8 @@ export interface AppConfig {
   complianceGuardAddress: Address | undefined;
   platformFeeWallet: Address | undefined;
   circleKitKey: string | undefined;
+  /** Autonomous demo-agent key that pays real USDC on Arc from the storefront. */
+  demoAgentPrivateKey: Hex | undefined;
   instantThreshold6: bigint;
   feePolicy: FeePolicy;
   /**
@@ -81,6 +83,7 @@ export function loadConfig(): AppConfig {
     complianceGuardAddress: env("COMPLIANCE_GUARD_ADDRESS") as Address | undefined,
     platformFeeWallet: env("PLATFORM_FEE_WALLET") as Address | undefined,
     circleKitKey: env("CIRCLE_KIT_KEY"),
+    demoAgentPrivateKey: env("DEMO_AGENT_PRIVATE_KEY") as Hex | undefined,
     instantThreshold6: thresholdFromEnv(),
     feePolicy: DEFAULT_FEE_POLICY,
     liveBridge: (env("LIVE_BRIDGE") === "true" || env("LIVE_BRIDGE") === "1") && Boolean(relayerPrivateKey),

@@ -14,6 +14,7 @@ export type Unlock = Awaited<ReturnType<typeof trpc.pieces.unlock.mutate>>;
 export type Traction = Awaited<ReturnType<typeof trpc.traction.stats.query>>;
 export type ReadingSession = Awaited<ReturnType<typeof trpc.agent.read.mutate>>;
 export type ServiceCall = Awaited<ReturnType<typeof trpc.pieces.callApi.mutate>>;
+export type LivePay = Awaited<ReturnType<typeof trpc.pieces.payLive.mutate>>;
 
 /** Format a 6dp base-unit string ("30000") as a USD display string ("$0.03"). */
 export function usd(base6: string): string {
@@ -366,12 +367,15 @@ export function AgentReader({ onRun }: { onRun?: () => void }) {
   );
 }
 
-/** A single piece. Content → "Unlock"; API → "Call" (pay-per-call x402). */
-export function PieceCard({ piece, onUnlocked }: { piece: Piece; onUnlocked?: () => void }) {
+/** A single piece. Content → "Unlock"; API → "Call" (pay-per-call x402).
+ *  When `live` is true a second button settles REAL USDC on Arc. */
+export function PieceCard({ piece, onUnlocked, live }: { piece: Piece; onUnlocked?: () => void; live?: boolean }) {
   const isApi = piece.kind === "api";
   const [busy, setBusy] = useState(false);
+  const [liveBusy, setLiveBusy] = useState(false);
   const [unlock, setUnlock] = useState<Unlock | null>(null);
   const [call, setCall] = useState<ServiceCall | null>(null);
+  const [livePay, setLivePay] = useState<LivePay | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const run = async () => {
@@ -390,6 +394,20 @@ export function PieceCard({ piece, onUnlocked }: { piece: Piece; onUnlocked?: ()
       setError(errorInfo(e).message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const runLive = async () => {
+    setLiveBusy(true);
+    setError(null);
+    try {
+      const result = await trpc.pieces.payLive.mutate({ pieceId: piece.id });
+      setLivePay(result);
+      onUnlocked?.();
+    } catch (e) {
+      setError(errorInfo(e).message);
+    } finally {
+      setLiveBusy(false);
     }
   };
 
@@ -439,8 +457,46 @@ export function PieceCard({ piece, onUnlocked }: { piece: Piece; onUnlocked?: ()
         {busy ? (isApi ? "Paying & calling…" : "Splitting across chains…") : isApi ? `Pay & call · $${piece.price}` : `Unlock for $${piece.price}`}
       </button>
 
+      {live ? (
+        <button
+          onClick={runLive}
+          disabled={liveBusy}
+          className="mt-2 rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-400/20 disabled:opacity-60"
+        >
+          {liveBusy ? "Agent paying real USDC on Arc…" : `⚡ Agent pays REAL USDC on Arc · $${piece.price}`}
+        </button>
+      ) : null}
+
       {error ? <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div> : null}
       {unlock ? <FanOut unlock={unlock} /> : null}
+      {livePay ? (
+        <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4">
+          <div className="mb-2 text-sm font-semibold text-emerald-300">✅ Real settlement on Arc Testnet</div>
+          <div className="space-y-1 text-xs text-slate-300">
+            <div>
+              agent paid ${livePay.priceUSDC} ·{" "}
+              <a className="mono text-indigo-300 underline decoration-dotted hover:text-indigo-200" target="_blank" rel="noreferrer" href={`${livePay.explorer}/tx/${livePay.paymentTx}`}>
+                payment tx ↗
+              </a>
+            </div>
+            {livePay.payouts.map((p, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span>→ {p.role} ({p.address.slice(0, 6)}…):</span>
+                {p.status === "paid" && p.txHash ? (
+                  <a className="mono text-indigo-300 underline decoration-dotted hover:text-indigo-200" target="_blank" rel="noreferrer" href={`${livePay.explorer}/tx/${p.txHash}`}>
+                    paid ${(Number(p.share6) / 1e6).toFixed(2)} ↗
+                  </a>
+                ) : (
+                  <span className="text-slate-500">skipped ({p.reason ?? "non-EVM"})</span>
+                )}
+              </div>
+            ))}
+            {livePay.upstream ? (
+              <div className="mt-2 truncate text-slate-400">upstream {livePay.upstream.status}: {JSON.stringify(livePay.upstream.body).slice(0, 80)}</div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       {call ? (
         <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/[0.06] p-4">
           <div className="mb-2 flex items-center justify-between text-sm">
