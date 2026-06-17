@@ -227,7 +227,12 @@ export async function payForPiece(
     ...(opts.agentId ? { agentId: opts.agentId } : {}),
     payouts,
   };
-  const batch = await processBulkPayout(store, tenant, input, now);
+  // SplitStream pieces settle via the direct-payout model (the live-agent button
+  // and the x402 LIVE_X402 path), never the treasury vault's executeIntent — so
+  // the bundled split always uses simulated settlement, even when the backend is
+  // booted in live (vault-configured) mode. Real on-chain settlement for a piece
+  // happens through payLiveForPiece / the x402 route.
+  const batch = await processBulkPayout(store, tenant, input, now, { forceSimulated: true });
 
   // 5) Record the unlock for the traction counter.
   store.recordUnlock(piece.id, piece.price6);

@@ -34,10 +34,11 @@ export interface ExecuteIntentResult {
 export async function executeIntentOnArc(
   store: Store,
   input: ExecuteIntentInput,
+  forceSimulated = false,
 ): Promise<ExecuteIntentResult> {
   const total = totalDebit6(input.fees);
 
-  if (config.onchainEnabled && hasRelayer() && config.vaultAddress) {
+  if (!forceSimulated && config.onchainEnabled && hasRelayer() && config.vaultAddress) {
     const hash = await walletClient!.writeContract({
       account: relayerAccount!,
       chain: arcTestnet,

@@ -79,6 +79,7 @@ export async function processBulkPayout(
   tenant: Tenant,
   input: BulkPayoutInput,
   now = Date.now(),
+  opts: { forceSimulated?: boolean } = {},
 ): Promise<BulkPayoutResult> {
   const batchId = nextBatchId(input.idempotencyKey, now);
 
@@ -182,7 +183,7 @@ export async function processBulkPayout(
         recipientKey,
         destinationSolver: mesh.solver.arcAddress,
         fees: p.fees,
-      });
+      }, opts.forceSimulated);
       arcTxHash = exec.arcTxHash;
     } else {
       whaleCount += 1;
@@ -207,7 +208,7 @@ export async function processBulkPayout(
         recipientKey,
         destinationSolver: platformTreasurySolver(),
         fees: p.fees,
-      });
+      }, opts.forceSimulated);
       // Surface the cross-chain CCTP burn as the Arc tx when we have it; fall
       // back to the executeIntent/ledger reference otherwise.
       arcTxHash = receipt.sourceTxHash ?? exec.arcTxHash;
