@@ -98,6 +98,7 @@ platform fee out of the price.
 
 ## Links
 
-- Live URL: _add your deployment_
+- Live API (Arc Testnet): <https://splitstream-api-production.up.railway.app> ([`/health`](https://splitstream-api-production.up.railway.app/health))
+- Live storefront: _Vercel deployment of `apps/web` (NEXT_PUBLIC_API_URL → the API above)_
 - Demo video (<3 min): _add Loom/YouTube_
-- Repo: this repository
+- Repo: <https://github.com/0x-pankaj/splitstream>

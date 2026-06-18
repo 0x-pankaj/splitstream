@@ -56,6 +56,26 @@ no human in the loop. Owner USDC balance went `0 → 0.01` on-chain.
 > instantly. The protocol, split math, credential injection, and live upstream
 > API calls are real in both modes; only the *settlement* is simulated in mirror.
 
+## Live deployment
+
+- **API (live on Arc Testnet):** <https://splitstream-api-production.up.railway.app>
+  — health: [`/health`](https://splitstream-api-production.up.railway.app/health)
+  (`onchainEnabled: true`, chain `5042002`); catalog:
+  [`/api/v1/pieces`](https://splitstream-api-production.up.railway.app/api/v1/pieces).
+  Runs in live Arc mode (real x402 + live-agent settlement); the bundled
+  storefront unlock settles simulated so casual browsing never drains the relayer.
+- **Storefront:** deployed on Vercel from `apps/web` with
+  `NEXT_PUBLIC_API_URL` pointed at the API above.
+- **Source:** <https://github.com/0x-pankaj/splitstream>
+
+Every `localhost:8787` example below also works against the live API — just swap
+the host. For example:
+
+```bash
+curl -X POST https://splitstream-api-production.up.railway.app/api/v1/pieces/piece-arc-frontier-001/pay \
+  -H 'content-type: application/json' -d '{"payer":"demo"}'
+```
+
 ## Quick start (the demo path — no keys needed)
 
 ```bash
