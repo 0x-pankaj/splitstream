@@ -31,6 +31,7 @@ import { addTenantRecipient, removeTenantRecipient } from "../services/recipient
 import { callPaidService, payForPiece, whitelistContributors } from "../services/splitEngine.js";
 import { runReadingAgent } from "../services/readingAgent.js";
 import { payLiveForPiece, liveAgentReady } from "../services/liveAgent.js";
+import { walletPaymentInfo, claimWalletPayment } from "../services/walletPayment.js";
 import { CreatePieceSchema, CallPieceSchema, parseUsdc6, ARC_TESTNET } from "@arcane/shared";
 
 /** Arc L1 native USDC system contract (6dp ERC-20 view). */
@@ -388,6 +389,27 @@ export const appRouter = router({
             agentId: input.agentId,
             input: input.input,
           });
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
+    /** Params a wallet needs to pay a piece in real USDC on Arc (or {enabled:false}). */
+    paymentInfo: publicProcedure.query(() => walletPaymentInfo()),
+
+    /**
+     * Claim a piece after paying for it with a real wallet: verify the buyer's
+     * on-chain USDC payment, grant a wallet-keyed entitlement, fan the split out
+     * to contributors on Arc, and return the now-unlocked content. This is the
+     * flow where "you paid" is cryptographically true.
+     */
+    claimPaid: publicProcedure
+      .input(z.object({ pieceId: z.string().min(1), txHash: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const piece = ctx.store.getPiece(input.pieceId);
+          if (!piece) throw new Error(`No such piece: ${input.pieceId}`);
+          return await claimWalletPayment(ctx.store, piece, input.txHash);
         } catch (err) {
           throw toTRPCError(err);
         }

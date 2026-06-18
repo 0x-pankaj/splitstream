@@ -5,9 +5,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatUsdc6 } from "@arcane/shared";
+import { formatUsdc6, parseUsdc6 } from "@arcane/shared";
 import { trpc, errorInfo, getReaderId, API_URL, getApiKey } from "../lib/trpc";
+import { payPieceOnchain, connectedAddress } from "../lib/wallet";
 import { ChainBadge, PathBadge, Pill, TxLink } from "./ui";
+
+export type PaymentInfo = Awaited<ReturnType<typeof trpc.pieces.paymentInfo.query>>;
+export type WalletClaim = Awaited<ReturnType<typeof trpc.pieces.claimPaid.mutate>>;
+
+// Payment params are the same for every piece, so fetch them once and share.
+let _payInfo: Promise<PaymentInfo> | null = null;
+function paymentInfoOnce(): Promise<PaymentInfo> {
+  if (!_payInfo) _payInfo = trpc.pieces.paymentInfo.query();
+  return _payInfo;
+}
 
 export type Piece = Awaited<ReturnType<typeof trpc.pieces.list.query>>[number];
 export type Unlock = Awaited<ReturnType<typeof trpc.pieces.unlock.mutate>>;
@@ -536,20 +547,62 @@ export function PieceCard({ piece, onUnlocked, live }: { piece: Piece; onUnlocke
   // Content this browser already paid for — fetched on load so a refresh / return
   // visit keeps access without paying again ("pay once, keep reading").
   const [owned, setOwned] = useState<string | null>(null);
+  const [payInfo, setPayInfo] = useState<PaymentInfo | null>(null);
+  const [walletBusy, setWalletBusy] = useState(false);
+  const [walletPay, setWalletPay] = useState<WalletClaim | null>(null);
+
+  useEffect(() => {
+    paymentInfoOnce().then(setPayInfo).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (isApi || !piece.hasContent) return;
     let cancelled = false;
-    trpc.pieces.access
-      .query({ pieceId: piece.id, reader: getReaderId() })
-      .then((r) => {
-        if (!cancelled && r.entitled && r.content) setOwned(r.content);
-      })
-      .catch(() => {});
+    // Check access by the browser reader id, and — if a wallet is already
+    // connected — by the wallet address too (portable, cross-device ownership).
+    const check = async () => {
+      const readers = [getReaderId()];
+      const wallet = await connectedAddress();
+      if (wallet) readers.push(wallet);
+      for (const reader of readers) {
+        const r = await trpc.pieces.access.query({ pieceId: piece.id, reader }).catch(() => null);
+        if (!cancelled && r?.entitled && r.content) {
+          setOwned(r.content);
+          return;
+        }
+      }
+    };
+    void check();
     return () => {
       cancelled = true;
     };
   }, [piece.id, piece.hasContent, isApi]);
+
+  // Real payment: pay USDC on Arc from the reader's wallet, then claim the piece.
+  const walletRun = async () => {
+    if (!payInfo?.enabled) return;
+    setWalletBusy(true);
+    setError(null);
+    try {
+      const price6 = parseUsdc6(piece.price).toString();
+      const { txHash } = await payPieceOnchain({
+        payTo: payInfo.payTo,
+        usdc: payInfo.usdc,
+        chainId: payInfo.chainId,
+        rpcUrl: payInfo.rpcUrl,
+        explorer: payInfo.explorer,
+        price6,
+      });
+      const claim = await trpc.pieces.claimPaid.mutate({ pieceId: piece.id, txHash });
+      setWalletPay(claim);
+      if (claim.content) setOwned(claim.content);
+      onUnlocked?.();
+    } catch (e) {
+      setError(errorInfo(e).message);
+    } finally {
+      setWalletBusy(false);
+    }
+  };
 
   const run = async () => {
     setBusy(true);
@@ -644,6 +697,16 @@ export function PieceCard({ piece, onUnlocked, live }: { piece: Piece; onUnlocke
         </button>
       )}
 
+      {!isApi && payInfo?.enabled && !owned ? (
+        <button
+          onClick={walletRun}
+          disabled={walletBusy}
+          className="mt-2 rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-2.5 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-400/20 disabled:opacity-60"
+        >
+          {walletBusy ? "Confirm in your wallet…" : `💳 Pay with your wallet · REAL USDC · $${piece.price}`}
+        </button>
+      ) : null}
+
       {live ? (
         <button
           onClick={runLive}
@@ -655,6 +718,32 @@ export function PieceCard({ piece, onUnlocked, live }: { piece: Piece; onUnlocke
       ) : null}
 
       {error ? <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div> : null}
+      {walletPay ? (
+        <div className="mt-4 rounded-xl border border-indigo-400/30 bg-indigo-500/[0.07] p-4 text-xs">
+          <div className="mb-2 text-sm font-semibold text-indigo-300">✅ You paid real USDC on Arc</div>
+          <div className="space-y-1 text-slate-300">
+            <div>
+              from <span className="mono text-slate-200">{walletPay.payer.slice(0, 6)}…{walletPay.payer.slice(-4)}</span> ·{" "}
+              <a className="mono text-indigo-300 underline decoration-dotted hover:text-indigo-200" target="_blank" rel="noreferrer" href={`${walletPay.explorer}/tx/${walletPay.paymentTx}`}>
+                payment tx ↗
+              </a>{" "}
+              · access tied to your wallet
+            </div>
+            {walletPay.payouts.map((p, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span>→ {p.role} ({p.address.slice(0, 6)}…):</span>
+                {p.status === "paid" && p.txHash ? (
+                  <a className="mono text-indigo-300 underline decoration-dotted hover:text-indigo-200" target="_blank" rel="noreferrer" href={`${walletPay.explorer}/tx/${p.txHash}`}>
+                    paid ${(Number(p.share6) / 1e6).toFixed(4)} ↗
+                  </a>
+                ) : (
+                  <span className="text-slate-500">skipped ({p.reason ?? "non-EVM"})</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {unlock ? <FanOut unlock={unlock} /> : owned ? <ContentReveal content={owned} /> : null}
       {livePay ? (
         <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4">

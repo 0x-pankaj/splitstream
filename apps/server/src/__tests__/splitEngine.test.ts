@@ -153,6 +153,17 @@ describe("payForPiece (read → pay → cross-chain split)", () => {
   });
 });
 
+describe("real wallet payments (env-gated)", () => {
+  it("reports disabled when no live relayer is configured (test env)", async () => {
+    const { walletPaymentInfo, claimWalletPayment } = await import("../services/walletPayment.js");
+    expect(walletPaymentInfo()).toEqual({ enabled: false });
+
+    const store = freshStore();
+    const piece = store.getPiece(DEMO_PIECE_ID)!;
+    await expect(claimWalletPayment(store, piece, "0x" + "ab".repeat(32))).rejects.toThrow(/not enabled/i);
+  });
+});
+
 describe("on-chain traction ledger (verifiable real settlements)", () => {
   it("records real settlements and sums the real USDC paid to creators", () => {
     const store = freshStore();

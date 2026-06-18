@@ -27,6 +27,7 @@ import { config } from "../config.js";
 import { authenticate } from "../auth/apiKeys.js";
 import { r2Enabled, isAllowedUploadType, uploadMedia, MAX_UPLOAD_BYTES } from "../services/r2.js";
 import { callPaidService, payForPiece, proxyUpstream, whitelistContributors } from "../services/splitEngine.js";
+import { walletPaymentInfo, claimWalletPayment } from "../services/walletPayment.js";
 import { payContributorsOnArc } from "../services/x402Settle.js";
 import {
   issueChallenge,
@@ -134,6 +135,27 @@ export function pieceRoutes(store: Store): Hono {
       }
       const result = await uploadMedia(bytes, type);
       return c.json({ ok: true, ...result }, 201);
+    } catch (err) {
+      const { body, status } = errorResponse(err);
+      return c.json(body, status);
+    }
+  });
+
+  // Public: the params a wallet needs to pay a piece in real USDC on Arc.
+  app.get("/payment-info", (c) => c.json({ ok: true, ...walletPaymentInfo() }));
+
+  // Public: claim a piece after a real wallet payment — verify the on-chain USDC
+  // payment, grant a wallet-keyed entitlement, settle the split, return content.
+  app.post("/:id/claim", async (c) => {
+    try {
+      const piece = store.getPiece(c.req.param("id"));
+      if (!piece) {
+        return c.json({ code: "NOT_FOUND", message: "No such piece" }, 404);
+      }
+      const body = await c.req.json().catch(() => ({}));
+      const txHash = typeof body?.txHash === "string" ? body.txHash : "";
+      const result = await claimWalletPayment(store, piece, txHash);
+      return c.json({ ok: true, claim: result }, 200);
     } catch (err) {
       const { body, status } = errorResponse(err);
       return c.json(body, status);
