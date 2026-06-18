@@ -1,0 +1,29 @@
+# Never ship local deps/build artifacts or secrets into the image.
+node_modules
+**/node_modules
+.git
+.turbo
+**/.turbo
+.next
+**/.next
+dist
+**/dist
+out
+**/out
+data
+**/data
+*.sqlite
+*.sqlite-journal
+contracts/lib
+contracts/out
+contracts/cache
+contracts/broadcast
+# Secrets — installed as Railway env vars, never baked into the image.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*.log
+.DS_Store
