@@ -130,6 +130,24 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
   relayer `0x8984…7154c` Arc USDC (~17 USDC at session 2). Top up via Circle
   faucet for sustained live traction.
 
+**Entitlements + live-payout fix (session 3):**
+- **Pay once, keep access.** A paid unlock with a reader id grants a durable
+  entitlement `(pieceId, reader)`. Public `pieces.access` (tRPC) + `GET
+  /pieces/:id/access?reader=` return the gated content to an owner WITHOUT
+  charging again. Web mints a stable per-browser reader id (`splitstream_reader`
+  in localStorage), passes it as `payer`, checks access on load, and reveals
+  owned content across refreshes/return visits → button shows "✓ You own this".
+  Agents keep paying per call via x402 (they carry no reader id). Verified LIVE:
+  pay → re-access returns content free; a different reader gets nothing.
+- **Live-payout nonce fix.** `payContributorsOnArc` now serializes relayer sends
+  through a mutex and assigns explicit monotonic nonces (fetched once per batch),
+  killing the "replacement transaction underpriced" error on the 2nd EVM payout
+  (the ⚡ "Agent pays REAL USDC on Arc" button).
+- **Durability.** Pieces + entitlements + traction now snapshot to sqlite and the
+  sqlite rides a **Railway volume** (`/app/apps/server/data`), surviving redeploys.
+- Tests 56/56. (DB note: volume+sqlite chosen over external Postgres; a managed
+  `DATABASE_URL` is the upgrade path if multi-instance scaling is needed.)
+
 **Gated content delivery (session 3):** pieces carry a free `preview` (catalog
 teaser) + a gated `content` body (markdown/text or media URL). Body is stripped
 from every public view (`pieceView`/`serializePiece` expose only `preview` +
