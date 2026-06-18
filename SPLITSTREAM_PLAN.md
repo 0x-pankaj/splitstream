@@ -130,6 +130,15 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
   relayer `0x8984…7154c` Arc USDC (~17 USDC at session 2). Top up via Circle
   faucet for sustained live traction.
 
+**Cloudflare D1 managed persistence (session 3):** durability now prefers
+Cloudflare D1 over the local sqlite/volume. Shared snapshot codec (`snapshot.ts`)
++ `d1Persistence.ts` (D1 HTTP query API, one snapshot row), gated on
+`CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_D1_DATABASE_ID` + `CLOUDFLARE_API_TOKEN`
+(set on Railway, never in git); falls back to sqlite if unset/unreachable.
+Verified LIVE: server restores from D1 on boot and writes entitlements through to
+the D1 snapshot row within the 5s flush. Survives service/volume deletion. (R2
+still only needed if a media-upload flow is added.)
+
 **Real on-chain traction + nonce fix proven LIVE (session 3):**
 - On-chain ledger records every real Arc settlement (agent payment tx + each
   contributor payout tx) from the ⚡ live-agent button and the live x402 route;
