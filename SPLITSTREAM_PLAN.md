@@ -130,6 +130,14 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
   relayer `0x8984…7154c` Arc USDC (~17 USDC at session 2). Top up via Circle
   faucet for sustained live traction.
 
+**Remote MCP over HTTP (session 3):** the MCP server is now HOSTED on the live
+API at `/mcp` (via `@hono/mcp` StreamableHTTPTransport, session-based, bound to
+the live store). Any MCP client adds it by URL — no clone, no Bun:
+  claude mcp add --transport http splitstream https://splitstream-api-production.up.railway.app/mcp
+Verified LIVE: initialize → Mcp-Session-Id → tools/list (8 tools) → tools/call
+list_pieces returns the real catalog (incl. a user-published "circle in depth"
+piece, persisted via D1). Local stdio kept as a dev alt. Docs + AGENTS.md updated.
+
 **Real human wallet payments (session 3):** makes "you paid" cryptographically
 true. `services/walletPayment.ts`: a reader connects an injected wallet, pays the
 price in real USDC on Arc to the platform payTo; the server VERIFIES that tx
