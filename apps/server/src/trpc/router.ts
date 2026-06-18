@@ -31,7 +31,7 @@ import { addTenantRecipient, removeTenantRecipient } from "../services/recipient
 import { callPaidService, payForPiece, whitelistContributors } from "../services/splitEngine.js";
 import { runReadingAgent } from "../services/readingAgent.js";
 import { payLiveForPiece, liveAgentReady } from "../services/liveAgent.js";
-import { CreatePieceSchema, CallPieceSchema, parseUsdc6 } from "@arcane/shared";
+import { CreatePieceSchema, CallPieceSchema, parseUsdc6, ARC_TESTNET } from "@arcane/shared";
 
 /** Arc L1 native USDC system contract (6dp ERC-20 view). */
 const ARC_USDC = "0x3600000000000000000000000000000000000000";
@@ -447,6 +447,13 @@ export const appRouter = router({
           unlocks: p.unlocks,
           totalPaid: formatUsdc6(p.totalPaid6),
         }));
+      // Verifiable, real-on-Arc traction (the "nothing simulated" headline).
+      const onchain = ctx.store.listOnchainSettlements(8);
+      const onchainPaid6 = ctx.store.onchainPaidTotal6();
+      const onchainPayoutCount = ctx.store.onchainSettlements.reduce(
+        (n, s) => n + s.payouts.length,
+        0,
+      );
       return {
         totalUnlocks,
         totalCreatorPaid: formatUsdc6(totalPaid6),
@@ -458,6 +465,29 @@ export const appRouter = router({
         onchainMode: config.onchainEnabled ? "live" : "simulated",
         /** When true, the storefront's live-agent button settles real USDC on Arc. */
         liveAgent: liveAgentReady(),
+        /** Arc explorer base for linking the real settlement txs below. */
+        explorer: ARC_TESTNET.explorer,
+        /** Real USDC actually paid to creators on Arc (verifiable on-chain). */
+        onchainCreatorPaid: formatUsdc6(onchainPaid6),
+        /** Count of real on-chain settlement events and individual payout txs. */
+        onchainSettlementCount: ctx.store.onchainSettlements.length,
+        onchainPayoutCount,
+        /** Most recent real settlements, with payment + payout tx hashes. */
+        recentOnchain: onchain.map((s) => ({
+          pieceId: s.pieceId,
+          title: s.title,
+          kind: s.kind,
+          priceUSDC: formatUsdc6(s.price6),
+          payer: s.payer,
+          paymentTx: s.paymentTx,
+          at: s.at,
+          payouts: s.payouts.map((p) => ({
+            role: p.role,
+            address: p.address,
+            shareUSDC: formatUsdc6(p.share6),
+            txHash: p.txHash,
+          })),
+        })),
       };
     }),
   }),

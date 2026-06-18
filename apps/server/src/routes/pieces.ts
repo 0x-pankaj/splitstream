@@ -222,6 +222,18 @@ export function pieceRoutes(store: Store): Hono {
         const shares6 = computeSplit(piece.price6, piece.contributors);
         const payments = await payContributorsOnArc(piece.contributors, shares6);
         store.recordUnlock(piece.id, piece.price6);
+        store.recordOnchainSettlement({
+          pieceId: piece.id,
+          title: piece.title,
+          kind: piece.kind,
+          price6: piece.price6,
+          payer: verified.payer ?? "agent",
+          paymentTx: verified.transaction ?? "",
+          payouts: payments
+            .filter((p) => p.status === "paid" && p.txHash)
+            .map((p) => ({ role: p.role, address: p.address, share6: BigInt(p.share6), txHash: p.txHash! })),
+          at: new Date().toISOString(),
+        });
         const upstream = await proxyUpstream(piece, parsed.data.input);
         const updated = store.getPiece(piece.id)!;
         return c.json(

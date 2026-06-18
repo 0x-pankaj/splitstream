@@ -53,6 +53,23 @@ interface VelocityState {
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
+/** One real, on-chain settlement on Arc — the verifiable traction we headline. */
+export interface OnchainSettlement {
+  pieceId: string;
+  title: string;
+  kind: PieceKind;
+  /** Price paid for this unlock/call, 6dp. */
+  price6: bigint;
+  /** The payer (agent/wallet address) that signed the on-chain payment. */
+  payer: string;
+  /** The real USDC payment tx hash on Arc. */
+  paymentTx: string;
+  /** Each contributor actually paid on Arc (skipped non-EVM legs are omitted). */
+  payouts: Array<{ role: string; address: string; share6: bigint; txHash: string }>;
+  /** ISO timestamp (passed in by the caller — never Date.now() at import). */
+  at: string;
+}
+
 /** A single-use x402 payment challenge issued for one paid API call. */
 export interface X402Challenge {
   nonce: string;
@@ -83,6 +100,14 @@ export class Store {
    * (x402) simply never present a reader id and so are charged each time.
    */
   entitlements = new Set<string>();
+
+  /**
+   * REAL on-chain settlements on Arc (the live-agent button + live x402 path):
+   * the verifiable, "nothing simulated" traction we headline for judges. Each
+   * entry carries the agent's payment tx and every contributor payout tx, so the
+   * site can link straight to the Arc explorer. Newest appended last.
+   */
+  onchainSettlements: OnchainSettlement[] = [];
 
   /** x402 single-use payment challenges, keyed by nonce (anti-replay). */
   x402Challenges = new Map<string, X402Challenge>();
@@ -332,6 +357,25 @@ export class Store {
   hasEntitlement(pieceId: string, reader: string): boolean {
     if (!reader.trim()) return false;
     return this.entitlements.has(this.entitlementKey(pieceId, reader));
+  }
+
+  /** Append a real on-chain settlement (bounded so memory/snapshot stay small). */
+  recordOnchainSettlement(s: OnchainSettlement): void {
+    this.onchainSettlements.push(s);
+    if (this.onchainSettlements.length > 500) this.onchainSettlements.shift();
+  }
+
+  /** Real on-chain settlements, newest first. */
+  listOnchainSettlements(limit = 10): OnchainSettlement[] {
+    return [...this.onchainSettlements].reverse().slice(0, limit);
+  }
+
+  /** Total real USDC actually paid to contributors on Arc (6dp). */
+  onchainPaidTotal6(): bigint {
+    let sum = 0n;
+    for (const s of this.onchainSettlements)
+      for (const p of s.payouts) sum += p.share6;
+    return sum;
   }
 
   // ── x402 payment challenges ──────────────────────────────────────────────────

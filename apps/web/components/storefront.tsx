@@ -104,6 +104,69 @@ function ContentReveal({ content }: { content: string }) {
   );
 }
 
+/** Short tx-hash → Arc explorer link. */
+function ExplorerTx({ explorer, hash, label }: { explorer: string; hash: string; label?: string }) {
+  if (!hash) return <span className="text-slate-500">—</span>;
+  return (
+    <a href={`${explorer}/tx/${hash}`} target="_blank" rel="noreferrer"
+      className="mono text-indigo-300 underline decoration-dotted hover:text-indigo-200">
+      {label ?? `${hash.slice(0, 8)}…${hash.slice(-6)}`} ↗
+    </a>
+  );
+}
+
+/**
+ * The judge magnet: REAL USDC settlements on Arc, with clickable on-chain proof.
+ * Everything here is verifiable on the Arc explorer — nothing simulated.
+ */
+export function OnchainTraction({ stats }: { stats: Traction | null }) {
+  if (!stats) return null;
+  const recent = stats.recentOnchain ?? [];
+  return (
+    <div className="card border-emerald-500/25 p-6" style={{ background: "rgba(16,185,129,0.05)" }}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
+            ⚡ Real USDC settled on Arc · verifiable on-chain
+          </span>
+          <Pill text={stats.liveAgent ? "LIVE relayer funded" : "live mode"} tone="emerald" />
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-semibold tabular-nums text-emerald-300">${stats.onchainCreatorPaid}</div>
+          <div className="text-[11px] uppercase tracking-wider text-slate-400">
+            real to creators · {stats.onchainPayoutCount} on-chain payouts
+          </div>
+        </div>
+      </div>
+      {recent.length === 0 ? (
+        <p className="text-sm text-slate-400">
+          No on-chain settlements yet. Hit <span className="text-emerald-300">⚡ Agent pays REAL USDC</span> on a
+          piece below (or pay the live x402 endpoint from an agent) to put a verifiable tx here.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {recent.map((s, i) => (
+            <div key={i} className="rounded-lg border border-slate-700/60 bg-slate-900/40 px-3 py-2 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-slate-200">{s.title} · <span className="text-slate-400">${s.priceUSDC}</span></span>
+                <span className="flex items-center gap-2 text-slate-400">
+                  paid <ExplorerTx explorer={stats.explorer} hash={s.paymentTx} /> →
+                  {s.payouts.map((p, j) => (
+                    <span key={j} className="flex items-center gap-1">
+                      <span className="text-slate-300">{p.role}</span>
+                      <ExplorerTx explorer={stats.explorer} hash={p.txHash} label={`$${p.shareUSDC}`} />
+                    </span>
+                  ))}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** The post-unlock reveal: every contributor that just got paid, on their chain. */
 export function FanOut({ unlock }: { unlock: Unlock }) {
   return (

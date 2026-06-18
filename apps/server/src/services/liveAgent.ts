@@ -115,8 +115,20 @@ export async function payLiveForPiece(store: Store, piece: Piece): Promise<LiveA
   const shares6 = computeSplit(piece.price6, piece.contributors);
   const payouts = await payContributorsOnArc(piece.contributors, shares6);
 
-  // 5) Record traction; proxy the upstream for API pieces.
+  // 5) Record traction (counter + verifiable on-chain ledger); proxy upstream.
   store.recordUnlock(piece.id, piece.price6);
+  store.recordOnchainSettlement({
+    pieceId: piece.id,
+    title: piece.title,
+    kind: piece.kind,
+    price6: piece.price6,
+    payer: agent.address,
+    paymentTx,
+    payouts: payouts
+      .filter((p) => p.status === "paid" && p.txHash)
+      .map((p) => ({ role: p.role, address: p.address, share6: BigInt(p.share6), txHash: p.txHash! })),
+    at: new Date().toISOString(),
+  });
   const upstream = piece.kind === "api" ? await proxyUpstream(piece) : undefined;
   const updated = store.getPiece(piece.id)!;
 

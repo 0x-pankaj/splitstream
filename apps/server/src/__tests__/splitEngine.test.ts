@@ -153,6 +153,31 @@ describe("payForPiece (read → pay → cross-chain split)", () => {
   });
 });
 
+describe("on-chain traction ledger (verifiable real settlements)", () => {
+  it("records real settlements and sums the real USDC paid to creators", () => {
+    const store = freshStore();
+    store.recordOnchainSettlement({
+      pieceId: DEMO_PIECE_ID,
+      title: "Real piece",
+      kind: "article",
+      price6: parseUsdc6("0.05"),
+      payer: "0xagent",
+      paymentTx: "0xpay1",
+      payouts: [
+        { role: "writer", address: "0x1111111111111111111111111111111111111111", share6: parseUsdc6("0.03"), txHash: "0xtx1" },
+        { role: "editor", address: "0x2222222222222222222222222222222222222222", share6: parseUsdc6("0.02"), txHash: "0xtx2" },
+      ],
+      at: "2026-06-19T00:00:00.000Z",
+    });
+
+    expect(store.onchainSettlements).toHaveLength(1);
+    // Real USDC total sums every payout leg's share.
+    expect(store.onchainPaidTotal6()).toBe(parseUsdc6("0.05"));
+    const recent = store.listOnchainSettlements();
+    expect(recent[0]!.payouts[0]!.txHash).toBe("0xtx1");
+  });
+});
+
 describe("authenticated API piece — credential injection without leak", () => {
   it("never serializes the upstream secret", () => {
     const store = freshStore();

@@ -7,7 +7,7 @@
  */
 
 import type { AgentWallet, AuditEntry, Piece } from "@arcane/shared";
-import type { ApiKey, RecipientRecord, Store, Tenant } from "./store.js";
+import type { ApiKey, OnchainSettlement, RecipientRecord, Store, Tenant } from "./store.js";
 
 /** JSON.stringify replacer that encodes bigint as a tagged string. */
 function replacer(_key: string, value: unknown): unknown {
@@ -40,6 +40,8 @@ interface Snapshot {
   /** SplitStream pieces (with accumulated traction) and reader entitlements. */
   pieces?: Piece[];
   entitlements?: string[];
+  /** Real on-chain settlements (verifiable Arc traction). */
+  onchainSettlements?: OnchainSettlement[];
 }
 
 type SqliteDb = {
@@ -82,6 +84,7 @@ export async function initPersistence(store: Store, path: string): Promise<() =>
       // accumulated state.
       for (const p of snap.pieces ?? []) store.pieces.set(p.id, p);
       for (const e of snap.entitlements ?? []) store.entitlements.add(e);
+      if (snap.onchainSettlements) store.onchainSettlements = snap.onchainSettlements;
       console.log(
         `[persistence] restored ${store.audit.length} audit entries, ` +
           `${store.tenants.size} tenants from ${path}`,
@@ -110,6 +113,7 @@ export async function initPersistence(store: Store, path: string): Promise<() =>
         ),
         pieces: [...store.pieces.values()],
         entitlements: [...store.entitlements],
+        onchainSettlements: store.onchainSettlements,
       };
       const json = JSON.stringify(snap, replacer);
       db.query("INSERT OR REPLACE INTO snapshot (id, json) VALUES (1, ?)").run(json);
