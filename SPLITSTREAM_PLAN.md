@@ -130,6 +130,15 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
   relayer `0x8984…7154c` Arc USDC (~17 USDC at session 2). Top up via Circle
   faucet for sustained live traction.
 
+**Gated content delivery (session 3):** pieces carry a free `preview` (catalog
+teaser) + a gated `content` body (markdown/text or media URL). Body is stripped
+from every public view (`pieceView`/`serializePiece` expose only `preview` +
+`hasContent`) and returned by `payForPiece` ONLY after payment — so an unlock
+delivers the real content, not just a receipt. Wired through schema → store →
+REST/tRPC/MCP → `/publish` form → post-unlock storefront reveal. Demo article
+seeded with a real body. Tests 52/52 (+2: gated pre-pay, revealed post-pay).
+Verified LIVE on Railway: catalog hides body, `POST /pay` returns it.
+
 **Done:**
 - Phase 0 (fork, git, docs), **Phase 1** (backend split flow).
 - **Phase 2 complete** — traction surface: tRPC `pieces.{list,get,unlock}` +
