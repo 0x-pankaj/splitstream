@@ -130,6 +130,20 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
   relayer `0x8984…7154c` Arc USDC (~17 USDC at session 2). Top up via Circle
   faucet for sustained live traction.
 
+**Real human wallet payments (session 3):** makes "you paid" cryptographically
+true. `services/walletPayment.ts`: a reader connects an injected wallet, pays the
+price in real USDC on Arc to the platform payTo; the server VERIFIES that tx
+(`verifyArcUsdcPayment`, tx-hash single-use), grants an entitlement keyed to the
+on-chain payer (wallet address — portable/unspoofable), fans the split out to
+contributors in real USDC, returns the content. tRPC `pieces.paymentInfo` +
+`pieces.claimPaid`; REST `GET /payment-info` + `POST /:id/claim`; env-gated on
+LIVE_X402. Web: `lib/wallet.ts` (EIP-1193 + viem; adds Arc chain, pays, waits
+receipt) + a "💳 Pay with your wallet · REAL USDC" button + verified receipt;
+on-load access check by wallet too. Verified LIVE: payment-info exposes payTo/
+usdc/chainId; claim rejects an unverified tx ("payment tx not found on Arc").
+All creds written to gitignored `apps/server/.env(.live)` with comments;
+`.env.example` documents the new var names. Tests 56/56.
+
 **R2 media uploads (session 3):** sellers can upload a real photo/song. New
 `services/r2.ts` uploads via Bun's native S3 client (dynamic import); `POST
 /api/v1/pieces/upload` (publisher key, multipart, images/audio, 15MB) stores in
