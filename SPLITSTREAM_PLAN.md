@@ -130,6 +130,20 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
   relayer `0x8984…7154c` Arc USDC (~17 USDC at session 2). Top up via Circle
   faucet for sustained live traction.
 
+**R2 media uploads (session 3):** sellers can upload a real photo/song. New
+`services/r2.ts` uploads via Bun's native S3 client (dynamic import); `POST
+/api/v1/pieces/upload` (publisher key, multipart, images/audio, 15MB) stores in
+R2 and returns the public URL, which becomes the piece's gated content (revealed
+post-payment). Publish form has an upload button + image/audio preview. Env-gated
+on `R2_*` (set on Railway; 503 when unset). Verified LIVE: PNG upload → public
+`r2.dev` URL serves 200 image/png.
+
+**Open / not-yet-real:** the human "Unlock" still grants an entitlement on click
+(soft, browser-id keyed) — it does NOT verify a real user payment; the relayer/
+agent moves the money. To make "you paid" real: wallet-connect → user pays USDC →
+`verifyArcUsdcPayment` → entitlement keyed to wallet. (Recommended next.) Traction
+loop parked per user.
+
 **Cloudflare D1 managed persistence (session 3):** durability now prefers
 Cloudflare D1 over the local sqlite/volume. Shared snapshot codec (`snapshot.ts`)
 + `d1Persistence.ts` (D1 HTTP query API, one snapshot row), gated on
