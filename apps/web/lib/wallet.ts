@@ -6,6 +6,17 @@
  */
 
 import { encodeFunctionData, type Hex } from "viem";
+import { ARC_TESTNET } from "@arcane/shared";
+
+/** Arc Testnet network params for `wallet_addEthereumChain`. USDC is the gas token. */
+export const ARC_NETWORK = {
+  chainId: ARC_TESTNET.chainId,
+  chainIdHex: `0x${ARC_TESTNET.chainId.toString(16)}`,
+  chainName: ARC_TESTNET.name,
+  rpcUrl: ARC_TESTNET.rpcHttp,
+  explorer: ARC_TESTNET.explorer,
+  currency: { name: "USDC", symbol: "USDC", decimals: 18 },
+} as const;
 
 const ERC20_TRANSFER_ABI = [
   {
@@ -33,6 +44,23 @@ function getProvider(): Eip1193Provider {
 /** True if an injected wallet is present. */
 export function hasWallet(): boolean {
   return typeof window !== "undefined" && Boolean((window as unknown as { ethereum?: unknown }).ethereum);
+}
+
+/** One-click: add Arc Testnet to the user's wallet (most people don't have it). */
+export async function addArcToWallet(): Promise<void> {
+  const eth = getProvider();
+  await eth.request({
+    method: "wallet_addEthereumChain",
+    params: [
+      {
+        chainId: ARC_NETWORK.chainIdHex,
+        chainName: ARC_NETWORK.chainName,
+        nativeCurrency: ARC_NETWORK.currency,
+        rpcUrls: [ARC_NETWORK.rpcUrl],
+        blockExplorerUrls: [ARC_NETWORK.explorer],
+      },
+    ],
+  });
 }
 
 /** The currently-connected address, if the wallet has already been authorized. */

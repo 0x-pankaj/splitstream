@@ -6,6 +6,36 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Pill } from "../../components/ui";
+import { addArcToWallet } from "../../lib/wallet";
+
+/** One-click "Add Arc Testnet to my wallet" with inline status. */
+function AddArc() {
+  const [status, setStatus] = useState<"idle" | "ok" | "err">("idle");
+  const [msg, setMsg] = useState("");
+  const add = async () => {
+    try {
+      await addArcToWallet();
+      setStatus("ok");
+      setMsg("Arc Testnet added — switch to it in your wallet and you're ready to pay.");
+    } catch (e) {
+      setStatus("err");
+      setMsg(e instanceof Error ? e.message : "Couldn't add the network automatically — add it manually below.");
+    }
+  };
+  return (
+    <div>
+      <button
+        onClick={add}
+        className="rounded-xl bg-indigo-500/90 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400"
+      >
+        ➕ Add Arc Testnet to my wallet
+      </button>
+      {status !== "idle" ? (
+        <div className={`mt-2 text-xs ${status === "ok" ? "text-emerald-300" : "text-amber-300"}`}>{msg}</div>
+      ) : null}
+    </div>
+  );
+}
 
 function Code({ children, label }: { children: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -58,6 +88,7 @@ const NAV: Array<{ id: string; label: string; group?: string }> = [
   { id: "buy-x402", label: "B. x402 (any agent)" },
   { id: "buy-rest", label: "C. REST / curl" },
   { id: "buy-human", label: "D. Storefront (human)" },
+  { id: "add-arc", label: "E. Add Arc to your wallet" },
   { group: "Reference", id: "ref-endpoints", label: "Endpoints" },
   { id: "ref-x402", label: "x402 wire format" },
   { id: "ref-network", label: "Network & modes" },
@@ -247,7 +278,36 @@ POST /api/v1/pieces/<id>/call
 
           <section className="space-y-3">
             <H id="buy-human">D. Storefront (human, one click)</H>
-            <p className="text-sm text-slate-300">Open the <Link href="/" className="text-indigo-300 hover:text-indigo-200">storefront</Link>: browse pieces, hit <strong>Unlock</strong> (content) or <strong>Pay &amp; call</strong> (API), and see the cross-chain fan-out + live result. No account.</p>
+            <p className="text-sm text-slate-300">Open the <Link href="/" className="text-indigo-300 hover:text-indigo-200">storefront</Link>: browse pieces, hit <strong>Unlock</strong> (content) or <strong>Pay &amp; call</strong> (API), and see the cross-chain fan-out + live result. No account. To pay with your <em>own</em> wallet in real USDC, add Arc first (below).</p>
+          </section>
+
+          <section className="space-y-3">
+            <H id="add-arc">E. Add Arc Testnet to your wallet</H>
+            <p className="text-sm text-slate-300">
+              To pay with <strong>your own wallet</strong> you need Arc Testnet added — most wallets don&apos;t have it yet.
+              One click adds it. On Arc, <strong>USDC is the gas token</strong>, so you only ever need USDC (no separate gas coin).
+            </p>
+            <Card>
+              <AddArc />
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <tbody className="mono">
+                    <tr><td className="py-1 pr-4 text-slate-500">Network name</td><td className="py-1">Arc Testnet</td></tr>
+                    <tr><td className="py-1 pr-4 text-slate-500">RPC URL</td><td className="py-1">https://rpc.testnet.arc.network</td></tr>
+                    <tr><td className="py-1 pr-4 text-slate-500">Chain ID</td><td className="py-1">5042002</td></tr>
+                    <tr><td className="py-1 pr-4 text-slate-500">Currency symbol</td><td className="py-1">USDC</td></tr>
+                    <tr><td className="py-1 pr-4 text-slate-500">Block explorer</td><td className="py-1">https://testnet.arcscan.app</td></tr>
+                    <tr><td className="py-1 pr-4 text-slate-500">USDC (ERC-20)</td><td className="py-1">{ARC_USDC}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-3 text-xs text-slate-400">
+                The button uses your wallet&apos;s <code className="mono">wallet_addEthereumChain</code>; if it&apos;s unavailable, add the values above by hand.
+                Need test USDC? Get it free from the{" "}
+                <a className="text-indigo-300 hover:text-indigo-200" target="_blank" rel="noreferrer" href="https://faucet.circle.com">Circle faucet</a>{" "}
+                (select Arc Testnet) — it covers both gas and purchases.
+              </p>
+            </Card>
           </section>
 
           {/* ─── REFERENCE ─── */}
