@@ -263,6 +263,8 @@ export class Store {
     endpoint?: string;
     httpMethod?: "GET" | "POST";
     auth?: PieceAuth;
+    preview?: string;
+    content?: string;
     createdAt?: string;
   }): Piece {
     const piece: Piece = {
@@ -275,6 +277,8 @@ export class Store {
       endpoint: input.endpoint,
       httpMethod: input.httpMethod,
       auth: input.auth,
+      preview: input.preview,
+      content: input.content,
       createdAt: input.createdAt ?? new Date().toISOString(),
       unlocks: 0,
       totalPaid6: 0n,

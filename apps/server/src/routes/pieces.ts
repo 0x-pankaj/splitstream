@@ -48,6 +48,10 @@ function pieceView(piece: Piece) {
     httpMethod: piece.httpMethod ?? null,
     authenticated: Boolean(piece.auth),
     authType: piece.auth?.type ?? null,
+    // Free teaser is public; the gated content body is NEVER in a catalog view —
+    // only `hasContent` signals that paying will reveal something.
+    preview: piece.preview ?? null,
+    hasContent: Boolean(piece.content),
     createdAt: piece.createdAt,
     unlocks: piece.unlocks,
     totalPaidUSDC: formatUsdc6(piece.totalPaid6),
@@ -93,6 +97,8 @@ export function pieceRoutes(store: Store): Hono {
         endpoint: parsed.data.endpoint,
         httpMethod: parsed.data.httpMethod,
         auth: parsed.data.auth,
+        preview: parsed.data.preview,
+        content: parsed.data.content,
       });
       // Vet contributors up front so the unlock path's compliance check passes.
       whitelistContributors(store, piece);

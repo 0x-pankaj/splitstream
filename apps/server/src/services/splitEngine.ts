@@ -55,6 +55,12 @@ export interface PieceUnlockResult {
   contributorCount: number;
   /** Distinct chains funds landed on for this unlock. */
   chains: TargetChain[];
+  /**
+   * The gated content the reader just paid for — markdown/text, or a URL for
+   * media — revealed only here, after payment. Null for "api" pieces (which
+   * return the upstream response instead) and for content pieces with no body.
+   */
+  content: string | null;
   contributors: ContributorSettlement[];
   /** The underlying bulk-payout batch (engine's authoritative result). */
   batch: BulkPayoutResult;
@@ -257,6 +263,9 @@ export async function payForPiece(
     price6: piece.price6.toString(),
     contributorCount: piece.contributors.length,
     chains,
+    // Deliver the gated content now that payment + split have succeeded. "api"
+    // pieces carry no content (the upstream response is the deliverable).
+    content: piece.kind === "api" ? null : piece.content ?? null,
     contributors,
     batch,
     pieceUnlocks: updated.unlocks,

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { computeSplit, parseUsdc6, type Contributor } from "@arcane/shared";
 import { Store } from "../db/store.js";
-import { seedDemo, DEMO_TENANT_ID, DEMO_PIECE_ID } from "../db/seed.js";
+import { seedDemo, DEMO_TENANT_ID, DEMO_PIECE_ID, DEMO_API_ID } from "../db/seed.js";
 import { payForPiece, callPaidService } from "../services/splitEngine.js";
 import { serializePiece } from "../trpc/serialize.js";
 import { resetCursors } from "../services/solverMesh.js";
@@ -95,6 +95,39 @@ describe("payForPiece (read → pay → cross-chain split)", () => {
     const updated = store.getPiece(DEMO_PIECE_ID)!;
     expect(updated.unlocks).toBe(2);
     expect(updated.totalPaid6).toBe(parseUsdc6("0.10"));
+  });
+
+  it("gates content: hidden in catalog views, delivered only after payment", async () => {
+    const store = freshStore();
+    const SECRET_BODY = "# Members only\n\nThe full gated article body.";
+    const piece = store.createPiece({
+      publisherTenantId: DEMO_TENANT_ID,
+      title: "Gated piece",
+      kind: "article",
+      price6: parseUsdc6("0.03"),
+      preview: "A free teaser anyone can read.",
+      content: SECRET_BODY,
+      contributors: [
+        { role: "writer", address: "0x1111111111111111111111111111111111111111", targetChain: "base", splitBps: 10000 },
+      ],
+    });
+
+    // Catalog view: the teaser + a paywall flag are public; the body is NOT.
+    const view = serializePiece(piece);
+    expect(view.preview).toBe("A free teaser anyone can read.");
+    expect(view.hasContent).toBe(true);
+    expect(JSON.stringify(view)).not.toContain("Members only");
+
+    // Paying reveals the body in the unlock receipt.
+    const receipt = await payForPiece(store, piece, { payer: "reader" }, 3_000_000);
+    expect(receipt.content).toBe(SECRET_BODY);
+  });
+
+  it("returns null content for an unlocked piece that has no body", async () => {
+    const store = freshStore();
+    const piece = store.getPiece(DEMO_API_ID)!; // api kind — no content body
+    const receipt = await payForPiece(store, piece, {}, 4_000_000);
+    expect(receipt.content).toBeNull();
   });
 });
 

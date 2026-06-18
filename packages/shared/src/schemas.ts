@@ -154,6 +154,15 @@ export const CreatePieceSchema = z
     kind: z.enum(PIECE_KINDS),
     priceUSDC: usdcAmount,
     contributors: z.array(ContributorSchema).min(1).max(20),
+    /**
+     * Content kinds: a short free teaser shown in the catalog before payment.
+     */
+    preview: z.string().max(2_000).optional(),
+    /**
+     * Content kinds: the gated payload (markdown/text, or a URL for media)
+     * revealed only in the unlock receipt after payment. Ignored for "api".
+     */
+    content: z.string().max(50_000).optional(),
     /** Required when kind === "api": the upstream endpoint to proxy on payment. */
     endpoint: httpUrl.optional(),
     httpMethod: z.enum(["GET", "POST"]).default("GET"),

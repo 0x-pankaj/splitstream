@@ -75,6 +75,35 @@ export function TractionHero({ stats }: { stats: Traction | null }) {
   );
 }
 
+/** True when a content payload is a URL we should render as a link/media. */
+function isUrl(s: string): boolean {
+  return /^https?:\/\//i.test(s.trim());
+}
+
+/** The content the reader just paid to unlock, revealed only post-payment. */
+function ContentReveal({ content }: { content: string }) {
+  const url = isUrl(content);
+  const isImage = url && /\.(png|jpe?g|gif|webp|avif|svg)(\?|$)/i.test(content.trim());
+  return (
+    <div className="mt-4 rounded-xl border border-indigo-400/30 bg-indigo-500/[0.07] p-4">
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-indigo-300">
+        🔓 Your unlocked content
+      </div>
+      {isImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={content.trim()} alt="unlocked content" className="max-h-96 w-full rounded-lg object-contain" />
+      ) : url ? (
+        <a href={content.trim()} target="_blank" rel="noreferrer"
+          className="mono break-all text-sm text-indigo-300 underline decoration-dotted hover:text-indigo-200">
+          {content.trim()} ↗
+        </a>
+      ) : (
+        <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-200">{content}</div>
+      )}
+    </div>
+  );
+}
+
 /** The post-unlock reveal: every contributor that just got paid, on their chain. */
 export function FanOut({ unlock }: { unlock: Unlock }) {
   return (
@@ -85,6 +114,7 @@ export function FanOut({ unlock }: { unlock: Unlock }) {
         </div>
         <Pill text={`${unlock.batch.instantCount} instant`} tone="emerald" />
       </div>
+      {unlock.content ? <ContentReveal content={unlock.content} /> : null}
       <div className="space-y-2">
         {unlock.contributors.map((c, i) => (
           <div key={i} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700/60 bg-slate-900/40 px-3 py-2">
@@ -126,6 +156,8 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
   const [authType, setAuthType] = useState<"none" | "bearer" | "header" | "query">("none");
   const [authName, setAuthName] = useState("");
   const [authSecret, setAuthSecret] = useState("");
+  const [preview, setPreview] = useState("");
+  const [content, setContent] = useState("");
   const [rows, setRows] = useState<Row[]>([
     { role: "creator", address: "", targetChain: "base", percent: "100" },
   ]);
@@ -163,7 +195,12 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
         kind,
         priceUSDC: price.trim(),
         contributors,
-        ...(isApi ? { endpoint: endpoint.trim(), httpMethod: method, ...(auth ? { auth } : {}) } : {}),
+        ...(isApi
+          ? { endpoint: endpoint.trim(), httpMethod: method, ...(auth ? { auth } : {}) }
+          : {
+              ...(preview.trim() ? { preview: preview.trim() } : {}),
+              ...(content.trim() ? { content: content.trim() } : {}),
+            }),
       });
       setOkId(piece.id);
       onPublished?.(piece.id);
@@ -217,6 +254,22 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200">
               <option>GET</option><option>POST</option>
             </select>
+          </label>
+        </div>
+      ) : null}
+
+      {!isApi ? (
+        <div className="mt-3 space-y-3">
+          <label className="block text-xs text-slate-400">
+            Preview (free teaser shown in the catalog)
+            <input value={preview} onChange={(e) => setPreview(e.target.value)} placeholder="A one-line hook readers see before paying…"
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200" />
+          </label>
+          <label className="block text-xs text-slate-400">
+            Content (revealed only after payment) — markdown/text, or a URL for a photo/audio file
+            <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={4}
+              placeholder={"# My article\n\nThe full body readers unlock for the price above…\n\n(or paste an https:// URL to a photo/song)"}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200" />
           </label>
         </div>
       ) : null}
@@ -429,6 +482,13 @@ export function PieceCard({ piece, onUnlocked, live }: { piece: Piece; onUnlocke
           <div className="text-[11px] uppercase tracking-wider text-slate-400">{isApi ? "per call" : "per unlock"}</div>
         </div>
       </div>
+
+      {!isApi && piece.preview ? (
+        <p className="mt-3 text-sm leading-relaxed text-slate-400">
+          {piece.preview}
+          {piece.hasContent ? <span className="ml-1 text-slate-500">🔒 unlocks on payment</span> : null}
+        </p>
+      ) : null}
 
       <div className="mt-4">
         <SplitBar contributors={piece.contributors} />

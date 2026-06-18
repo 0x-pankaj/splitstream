@@ -67,6 +67,20 @@ export interface Piece {
   httpMethod?: "GET" | "POST";
   /** For kind "api": optional upstream credential the platform injects per call. */
   auth?: PieceAuth;
+  /**
+   * For content kinds (article/photo/song/podcast): a short public teaser shown
+   * in the catalog BEFORE payment. Free — never gated. Unused for "api" pieces.
+   */
+  preview?: string;
+  /**
+   * For content kinds: the gated payload revealed ONLY after payment — markdown /
+   * text for an article or song lyrics, or a URL for a photo / audio file. Stored
+   * server-side; STRIPPED from every public catalog view (`pieceView` /
+   * `serializePiece` expose only `hasContent`) and returned by `payForPiece` in
+   * the unlock receipt once the reader has paid. This is what makes an unlock
+   * deliver something real rather than just a payment receipt.
+   */
+  content?: string;
   /** Everyone who gets paid when the piece is unlocked. Shares sum to 10000 bps. */
   contributors: Contributor[];
   createdAt: string;

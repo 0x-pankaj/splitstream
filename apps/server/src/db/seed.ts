@@ -139,6 +139,33 @@ export function seedDemo(store: Store, opts: SeedOptions = {}): void {
     title: "The Stablecoin Frontier: Inside Arc L1",
     kind: "article",
     price6: parseUsdc6("0.05"),
+    preview:
+      "Arc makes USDC the native gas token — so the unit you transact in is the " +
+      "unit you pay fees in. Here's what that unlocks for sub-cent, cross-chain " +
+      "creator payments…",
+    content: [
+      "# The Stablecoin Frontier: Inside Arc L1",
+      "",
+      "Most chains ask you to hold a volatile gas token just to move a stablecoin.",
+      "Arc collapses that: **USDC is the native gas token**, so the unit you",
+      "transact in is the unit you pay fees in. Predictable cost, sub-second",
+      "finality, and no second asset to manage.",
+      "",
+      "## Why it matters for creators",
+      "",
+      "A $0.05 unlock can be split three ways and settled on three different chains",
+      "without anyone touching ETH or SOL for gas. The reader pays once; the writer",
+      "is paid on Base, the editor on Arbitrum, the photographer on Solana — each in",
+      "native USDC, in under 500ms.",
+      "",
+      "## The takeaway",
+      "",
+      "When the settlement layer speaks stablecoin natively, per-piece monetization",
+      "stops being a rounding error eaten by fees and starts being a real business",
+      "model. That's the frontier SplitStream is built on.",
+      "",
+      "*Thanks for paying to read — your $0.05 just fanned out to three creators.*",
+    ].join("\n"),
     contributors: [
       { role: "writer", address: "0x1111111111111111111111111111111111111111", targetChain: "base", splitBps: 6000 },
       { role: "editor", address: "0x2222222222222222222222222222222222222222", targetChain: "arbitrum", splitBps: 2500 },

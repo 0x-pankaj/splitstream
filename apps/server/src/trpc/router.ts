@@ -330,6 +330,8 @@ export const appRouter = router({
             endpoint: input.endpoint,
             httpMethod: input.httpMethod,
             auth: input.auth,
+            preview: input.preview,
+            content: input.content,
           });
           whitelistContributors(ctx.store, piece);
           return serializePiece(piece);

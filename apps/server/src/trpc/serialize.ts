@@ -28,6 +28,10 @@ export function serializePiece(p: Piece) {
     // Reveal that the API is authenticated and how — but NEVER the secret.
     authenticated: Boolean(p.auth),
     authType: p.auth?.type ?? null,
+    // Free teaser is public; the gated body is NEVER serialized here — paying
+    // (payForPiece) is what returns `content`. `hasContent` just flags a paywall.
+    preview: p.preview ?? null,
+    hasContent: Boolean(p.content),
     createdAt: p.createdAt,
     unlocks: p.unlocks,
     totalPaid: formatUsdc6(p.totalPaid6),
