@@ -37,6 +37,20 @@ export interface AppConfig {
   circleKitKey: string | undefined;
   /** Autonomous demo-agent key that pays real USDC on Arc from the storefront. */
   demoAgentPrivateKey: Hex | undefined;
+  /**
+   * Cloudflare R2 (S3-compatible) for hosting uploaded media (photos/songs). When
+   * set, a seller can upload a real file and its public URL becomes the piece's
+   * gated content. Undefined → uploads are disabled (content stays text/URL only).
+   */
+  r2:
+    | {
+        endpoint: string;
+        accessKeyId: string;
+        secretAccessKey: string;
+        bucket: string;
+        publicUrl: string;
+      }
+    | undefined;
   instantThreshold6: bigint;
   feePolicy: FeePolicy;
   /**
@@ -73,6 +87,21 @@ export function loadConfig(): AppConfig {
   const relayerPrivateKey = env("RELAYER_PRIVATE_KEY") as Hex | undefined;
   const vaultAddress = env("VAULT_ADDRESS") as Address | undefined;
 
+  const r2Endpoint = env("R2_ENDPOINT");
+  const r2AccessKeyId = env("R2_ACCESS_KEY_ID");
+  const r2SecretAccessKey = env("R2_SECRET_ACCESS_KEY");
+  const r2PublicUrl = env("R2_PUBLIC_URL");
+  const r2 =
+    r2Endpoint && r2AccessKeyId && r2SecretAccessKey && r2PublicUrl
+      ? {
+          endpoint: r2Endpoint,
+          accessKeyId: r2AccessKeyId,
+          secretAccessKey: r2SecretAccessKey,
+          bucket: env("R2_BUCKET") ?? "splitstream",
+          publicUrl: r2PublicUrl,
+        }
+      : undefined;
+
   return {
     port: Number(env("PORT") ?? 8787),
     databasePath: env("DATABASE_PATH") ?? "./data/arcane.sqlite",
@@ -84,6 +113,7 @@ export function loadConfig(): AppConfig {
     platformFeeWallet: env("PLATFORM_FEE_WALLET") as Address | undefined,
     circleKitKey: env("CIRCLE_KIT_KEY"),
     demoAgentPrivateKey: env("DEMO_AGENT_PRIVATE_KEY") as Hex | undefined,
+    r2,
     instantThreshold6: thresholdFromEnv(),
     feePolicy: DEFAULT_FEE_POLICY,
     liveBridge: (env("LIVE_BRIDGE") === "true" || env("LIVE_BRIDGE") === "1") && Boolean(relayerPrivateKey),

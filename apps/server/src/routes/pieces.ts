@@ -25,6 +25,7 @@ import {
 import type { Store } from "../db/store.js";
 import { config } from "../config.js";
 import { authenticate } from "../auth/apiKeys.js";
+import { r2Enabled, isAllowedUploadType, uploadMedia, MAX_UPLOAD_BYTES } from "../services/r2.js";
 import { callPaidService, payForPiece, proxyUpstream, whitelistContributors } from "../services/splitEngine.js";
 import { payContributorsOnArc } from "../services/x402Settle.js";
 import {
@@ -104,6 +105,35 @@ export function pieceRoutes(store: Store): Hono {
       whitelistContributors(store, piece);
 
       return c.json({ ok: true, piece: pieceView(piece) }, 201);
+    } catch (err) {
+      const { body, status } = errorResponse(err);
+      return c.json(body, status);
+    }
+  });
+
+  // Publisher uploads a media file (photo/song) → stored in R2 → returns the
+  // public URL to use as a piece's gated content. Requires a publisher api key.
+  app.post("/upload", async (c) => {
+    try {
+      authenticate(store, c.req.header("x-api-key"), "payouts:write");
+      if (!r2Enabled()) {
+        return c.json({ code: "UPLOADS_DISABLED", message: "Media uploads are not configured (R2)" }, 503);
+      }
+      const form = await c.req.formData().catch(() => null);
+      const file = form?.get("file");
+      if (!file || typeof file === "string") {
+        return c.json({ code: "NO_FILE", message: "multipart 'file' field is required" }, 400);
+      }
+      const type = file.type || "application/octet-stream";
+      if (!isAllowedUploadType(type)) {
+        return c.json({ code: "BAD_TYPE", message: `unsupported type ${type} (images/audio only)` }, 415);
+      }
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      if (bytes.byteLength > MAX_UPLOAD_BYTES) {
+        return c.json({ code: "TOO_LARGE", message: "file too large (max 15 MB)" }, 413);
+      }
+      const result = await uploadMedia(bytes, type);
+      return c.json({ ok: true, ...result }, 201);
     } catch (err) {
       const { body, status } = errorResponse(err);
       return c.json(body, status);

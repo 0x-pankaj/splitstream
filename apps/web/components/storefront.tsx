@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { formatUsdc6 } from "@arcane/shared";
-import { trpc, errorInfo, getReaderId } from "../lib/trpc";
+import { trpc, errorInfo, getReaderId, API_URL, getApiKey } from "../lib/trpc";
 import { ChainBadge, PathBadge, Pill, TxLink } from "./ui";
 
 export type Piece = Awaited<ReturnType<typeof trpc.pieces.list.query>>[number];
@@ -221,6 +221,7 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
   const [authSecret, setAuthSecret] = useState("");
   const [preview, setPreview] = useState("");
   const [content, setContent] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [rows, setRows] = useState<Row[]>([
     { role: "creator", address: "", targetChain: "base", percent: "100" },
   ]);
@@ -233,6 +234,29 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
 
   const setRow = (i: number, patch: Partial<Row>) =>
     setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+
+  // Upload a real photo/song file to R2; its public URL becomes the gated content.
+  const onFile = async (file: File | null | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`${API_URL}/api/v1/pieces/upload`, {
+        method: "POST",
+        headers: { "x-api-key": getApiKey() },
+        body: fd,
+      });
+      const data = (await res.json()) as { ok?: boolean; url?: string; message?: string };
+      if (!res.ok || !data.url) throw new Error(data.message ?? `upload failed (${res.status})`);
+      setContent(data.url);
+    } catch (e) {
+      setError(errorInfo(e).message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const publish = async () => {
     setBusy(true);
@@ -331,9 +355,25 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
           <label className="block text-xs text-slate-400">
             Content (revealed only after payment) — markdown/text, or a URL for a photo/audio file
             <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={4}
-              placeholder={"# My article\n\nThe full body readers unlock for the price above…\n\n(or paste an https:// URL to a photo/song)"}
+              placeholder={"# My article\n\nThe full body readers unlock for the price above…\n\n(or upload a photo/song below, or paste an https:// URL)"}
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200" />
           </label>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+            <label className="cursor-pointer rounded-lg border border-slate-600 px-3 py-1.5 hover:bg-slate-700/40">
+              {uploading ? "Uploading…" : "⬆ Upload photo / song"}
+              <input type="file" accept="image/*,audio/*" className="hidden" disabled={uploading}
+                onChange={(e) => onFile(e.target.files?.[0])} />
+            </label>
+            <span className="text-slate-500">file is stored on R2; its URL becomes the gated content</span>
+          </div>
+          {content && /^https?:\/\//i.test(content) ? (
+            /\.(png|jpe?g|gif|webp|avif|svg)(\?|$)/i.test(content) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={content} alt="upload preview" className="max-h-40 rounded-lg border border-slate-700 object-contain" />
+            ) : (
+              <audio controls src={content} className="w-full" />
+            )
+          ) : null}
         </div>
       ) : null}
 
