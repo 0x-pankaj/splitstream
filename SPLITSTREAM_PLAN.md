@@ -130,6 +130,23 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
   relayer `0x8984…7154c` Arc USDC (~17 USDC at session 2). Top up via Circle
   faucet for sustained live traction.
 
+**Real on-chain traction + nonce fix proven LIVE (session 3):**
+- On-chain ledger records every real Arc settlement (agent payment tx + each
+  contributor payout tx) from the ⚡ live-agent button and the live x402 route;
+  persisted in the snapshot. `traction.stats` exposes `onchainCreatorPaid`,
+  payout count, and `recentOnchain` (with arcscan links). New storefront
+  **OnchainTraction** panel headlines verifiable real-USDC settlements under the
+  hero, auto-refreshed every 8s.
+- **Proven in production:** triggered `pieces.payLive` on the live API →
+  writer+editor paid real USDC on Arc (the 2-EVM-payout case that previously
+  threw "replacement transaction underpriced" — now clean). Txs: payment
+  0x41485bb2…, writer 0xd4231a43…, editor 0xfb868c4a…; Solana leg skipped.
+  Panel shows $0.0425 real to creators, 2 on-chain payouts.
+- **CLI/agent guide** in `AGENTS.md` (MCP, live x402 + Circle wallet, scripts).
+- **Persistence note:** Railway volume confirmed durable across redeploys (the
+  earlier paid unlock survived). D1 upgrade pending account-id + API-token from
+  user; R2 only needed if media-upload flow is added.
+
 **Entitlements + live-payout fix (session 3):**
 - **Pay once, keep access.** A paid unlock with a reader id grants a durable
   entitlement `(pieceId, reader)`. Public `pieces.access` (tRPC) + `GET
