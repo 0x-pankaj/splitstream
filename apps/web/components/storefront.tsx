@@ -4,7 +4,8 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { formatUsdc6, parseUsdc6 } from "@arcane/shared";
 import { trpc, errorInfo, getReaderId, API_URL, getApiKey } from "../lib/trpc";
 import { payPieceOnchain, connectedAddress } from "../lib/wallet";
@@ -91,6 +92,59 @@ function isUrl(s: string): boolean {
   return /^https?:\/\//i.test(s.trim());
 }
 
+/** Render inline **bold** / *italic* as React nodes (no innerHTML — XSS-safe). */
+function inlineMd(s: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  const re = /\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let k = 0;
+  while ((m = re.exec(s))) {
+    if (m.index > last) out.push(s.slice(last, m.index));
+    if (m[1]) out.push(<strong key={k++} className="font-semibold text-slate-100">{m[1]}</strong>);
+    else out.push(<em key={k++}>{m[2] ?? m[3]}</em>);
+    last = re.lastIndex;
+  }
+  if (last < s.length) out.push(s.slice(last));
+  return out;
+}
+
+/** Minimal, safe markdown → React (headings, paragraphs, bullet lists, bold/italic). */
+function Markdown({ text }: { text: string }) {
+  const lines = text.split("\n");
+  const blocks: ReactNode[] = [];
+  let para: string[] = [];
+  const flush = (key: string) => {
+    if (para.length) {
+      blocks.push(<p key={key} className="my-2.5 text-[15px] leading-7 text-slate-200">{inlineMd(para.join(" "))}</p>);
+      para = [];
+    }
+  };
+  lines.forEach((line, i) => {
+    const h = /^(#{1,3})\s+(.*)/.exec(line);
+    if (h) {
+      flush(`p${i}`);
+      const lvl = h[1]!.length;
+      const cls =
+        lvl === 1
+          ? "mt-5 mb-2 text-xl font-semibold text-slate-100"
+          : lvl === 2
+            ? "mt-4 mb-1.5 text-lg font-semibold text-slate-100"
+            : "mt-3 mb-1 text-base font-semibold text-slate-200";
+      blocks.push(<div key={`h${i}`} className={cls}>{inlineMd(h[2]!)}</div>);
+    } else if (/^\s*[-*]\s+/.test(line)) {
+      flush(`p${i}`);
+      blocks.push(<li key={`l${i}`} className="ml-5 list-disc text-[15px] leading-7 text-slate-200">{inlineMd(line.replace(/^\s*[-*]\s+/, ""))}</li>);
+    } else if (line.trim() === "") {
+      flush(`p${i}`);
+    } else {
+      para.push(line);
+    }
+  });
+  flush("pend");
+  return <div>{blocks}</div>;
+}
+
 /** The content the reader just paid to unlock, revealed only post-payment. */
 function ContentReveal({ content }: { content: string }) {
   const url = isUrl(content);
@@ -109,7 +163,7 @@ function ContentReveal({ content }: { content: string }) {
           {content.trim()} ↗
         </a>
       ) : (
-        <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-200">{content}</div>
+        <Markdown text={content} />
       )}
     </div>
   );
@@ -536,7 +590,18 @@ export function AgentReader({ onRun }: { onRun?: () => void }) {
 
 /** A single piece. Content → "Unlock"; API → "Call" (pay-per-call x402).
  *  When `live` is true a second button settles REAL USDC on Arc. */
-export function PieceCard({ piece, onUnlocked, live }: { piece: Piece; onUnlocked?: () => void; live?: boolean }) {
+export function PieceCard({
+  piece,
+  onUnlocked,
+  live,
+  detailHref,
+}: {
+  piece: Piece;
+  onUnlocked?: () => void;
+  live?: boolean;
+  /** When set, the title links to the full detail/reading page. */
+  detailHref?: string;
+}) {
   const isApi = piece.kind === "api";
   const [busy, setBusy] = useState(false);
   const [liveBusy, setLiveBusy] = useState(false);
@@ -646,7 +711,13 @@ export function PieceCard({ piece, onUnlocked, live }: { piece: Piece; onUnlocke
             <Pill text={isApi ? "paid API" : piece.kind} tone={isApi ? "amber" : "slate"} />
             {isApi && piece.authenticated ? <Pill text={`🔒 ${piece.authType}`} tone="emerald" /> : null}
           </span>
-          <h3 className="mt-2 text-lg font-semibold leading-snug text-slate-100">{piece.title}</h3>
+          {detailHref ? (
+            <Link href={detailHref} className="mt-2 block text-lg font-semibold leading-snug text-slate-100 hover:text-indigo-300">
+              {piece.title}
+            </Link>
+          ) : (
+            <h3 className="mt-2 text-lg font-semibold leading-snug text-slate-100">{piece.title}</h3>
+          )}
           {isApi && piece.endpoint ? (
             <div className="mono mt-1 truncate text-[11px] text-slate-500">{piece.httpMethod ?? "GET"} {piece.endpoint}</div>
           ) : null}
@@ -678,7 +749,13 @@ export function PieceCard({ piece, onUnlocked, live }: { piece: Piece; onUnlocke
 
       <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
         <span>{piece.unlocks} {isApi ? "calls" : "unlocks"} · ${piece.totalPaid} to {isApi ? "owner" : "creators"}</span>
-        <span>{piece.chains.length} chain{piece.chains.length === 1 ? "" : "s"}</span>
+        {detailHref ? (
+          <Link href={detailHref} className="font-medium text-indigo-300 hover:text-indigo-200">
+            {!isApi && piece.hasContent ? "Open & read →" : "Open →"}
+          </Link>
+        ) : (
+          <span>{piece.chains.length} chain{piece.chains.length === 1 ? "" : "s"}</span>
+        )}
       </div>
 
       {!isApi && owned && !unlock ? (
