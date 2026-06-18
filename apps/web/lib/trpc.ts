@@ -42,6 +42,30 @@ export function isCustomKey(): boolean {
   return getApiKey() !== DEMO_API_KEY;
 }
 
+const READER_KEY = "splitstream_reader";
+let cachedReader: string | null = null;
+
+/**
+ * A stable, anonymous per-browser reader id. Used as the `payer` on an unlock so
+ * the server can grant this reader durable access to the piece — that's what lets
+ * a human "pay once, keep reading" across refreshes and return visits, with no
+ * signup. (AI agents pay per call via x402 and never carry one of these.)
+ */
+export function getReaderId(): string {
+  if (cachedReader) return cachedReader;
+  if (typeof window === "undefined") return "ssr";
+  let id = window.localStorage.getItem(READER_KEY);
+  if (!id) {
+    id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? `reader_${crypto.randomUUID()}`
+        : `reader_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    window.localStorage.setItem(READER_KEY, id);
+  }
+  cachedReader = id;
+  return id;
+}
+
 export const trpc = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({

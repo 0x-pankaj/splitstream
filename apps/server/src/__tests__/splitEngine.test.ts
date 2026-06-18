@@ -129,6 +129,28 @@ describe("payForPiece (read → pay → cross-chain split)", () => {
     const receipt = await payForPiece(store, piece, {}, 4_000_000);
     expect(receipt.content).toBeNull();
   });
+
+  it("grants the payer a durable entitlement (pay once, keep access)", async () => {
+    const store = freshStore();
+    const piece = store.getPiece(DEMO_PIECE_ID)!;
+    const reader = "reader_abc";
+
+    expect(store.hasEntitlement(piece.id, reader)).toBe(false);
+    await payForPiece(store, piece, { payer: reader }, 5_000_000);
+
+    // The reader now owns it — case-insensitively, and an anonymous reader does not.
+    expect(store.hasEntitlement(piece.id, reader)).toBe(true);
+    expect(store.hasEntitlement(piece.id, "READER_ABC")).toBe(true);
+    expect(store.hasEntitlement(piece.id, "someone_else")).toBe(false);
+  });
+
+  it("does not grant an entitlement to an anonymous (no-payer) unlock", async () => {
+    const store = freshStore();
+    const piece = store.getPiece(DEMO_PIECE_ID)!;
+    await payForPiece(store, piece, {}, 6_000_000);
+    expect(store.hasEntitlement(piece.id, "")).toBe(false);
+    expect(store.entitlements.size).toBe(0);
+  });
 });
 
 describe("authenticated API piece — credential injection without leak", () => {

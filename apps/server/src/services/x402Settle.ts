@@ -21,6 +21,23 @@ import { erc20Abi } from "../chain/abis.js";
 
 const isEvm = (addr: string): boolean => /^0x[a-fA-F0-9]{40}$/.test(addr);
 
+/**
+ * Serialize every relayer-signed send. The relayer is a single EOA, so two
+ * concurrent settlements (or a fast loop of payouts) must not race for the same
+ * nonce — that yields "replacement transaction underpriced". This promise chain
+ * runs relayer batches one at a time; combined with explicit nonce sequencing
+ * below, every transfer gets a distinct, monotonic nonce.
+ */
+let relayerQueue: Promise<unknown> = Promise.resolve();
+function withRelayerLock<T>(fn: () => Promise<T>): Promise<T> {
+  const next = relayerQueue.then(fn, fn);
+  relayerQueue = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  return next;
+}
+
 export interface PaymentVerification {
   ok: boolean;
   reason?: string;
@@ -95,33 +112,46 @@ export async function payContributorsOnArc(
   contributors: Contributor[],
   shares6: bigint[],
 ): Promise<OnArcPayout[]> {
-  if (!walletClient || !relayerAccount) {
+  const wallet = walletClient;
+  const relayer = relayerAccount;
+  if (!wallet || !relayer) {
     throw new Error("LIVE_X402 requires a configured relayer wallet");
   }
-  const payouts: OnArcPayout[] = [];
-  for (let i = 0; i < contributors.length; i++) {
-    const c = contributors[i]!;
-    const share6 = shares6[i]!;
-    if (!isEvm(c.address)) {
-      payouts.push({
-        role: c.role,
-        address: c.address,
-        share6: share6.toString(),
-        txHash: null,
-        status: "skipped",
-        reason: "non-EVM address — route cross-chain via CCTP for this contributor",
-      });
-      continue;
-    }
-    const txHash = await walletClient.writeContract({
-      account: relayerAccount,
-      chain: arcTestnet,
-      address: USDC,
-      abi: erc20Abi,
-      functionName: "transfer",
-      args: [c.address as `0x${string}`, share6],
+  return withRelayerLock(async () => {
+    const payouts: OnArcPayout[] = [];
+    // Fetch the relayer's next nonce ONCE, then assign explicitly and increment
+    // per actually-sent tx. This avoids the node's pending-count lag handing two
+    // back-to-back transfers the same nonce ("replacement transaction underpriced").
+    let nonce = await publicClient.getTransactionCount({
+      address: relayer.address,
+      blockTag: "pending",
     });
-    payouts.push({ role: c.role, address: c.address, share6: share6.toString(), txHash, status: "paid" });
-  }
-  return payouts;
+    for (let i = 0; i < contributors.length; i++) {
+      const c = contributors[i]!;
+      const share6 = shares6[i]!;
+      if (!isEvm(c.address)) {
+        payouts.push({
+          role: c.role,
+          address: c.address,
+          share6: share6.toString(),
+          txHash: null,
+          status: "skipped",
+          reason: "non-EVM address — route cross-chain via CCTP for this contributor",
+        });
+        continue;
+      }
+      const txHash = await wallet.writeContract({
+        account: relayer,
+        chain: arcTestnet,
+        address: USDC,
+        abi: erc20Abi,
+        functionName: "transfer",
+        args: [c.address as `0x${string}`, share6],
+        nonce,
+      });
+      nonce += 1;
+      payouts.push({ role: c.role, address: c.address, share6: share6.toString(), txHash, status: "paid" });
+    }
+    return payouts;
+  });
 }

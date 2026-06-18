@@ -75,6 +75,15 @@ export class Store {
   /** SplitStream: monetizable content pieces, keyed by piece id. */
   pieces = new Map<string, Piece>();
 
+  /**
+   * Entitlements — who has already paid to unlock which piece, so a returning
+   * reader keeps access without paying again. Keyed `${pieceId}::${reader}`
+   * (reader = a wallet address or a stable per-browser id, lowercased). This is
+   * what makes the human side "pay once, read forever"; agents paying per call
+   * (x402) simply never present a reader id and so are charged each time.
+   */
+  entitlements = new Set<string>();
+
   /** x402 single-use payment challenges, keyed by nonce (anti-replay). */
   x402Challenges = new Map<string, X402Challenge>();
   /** On-chain payment tx hashes already redeemed (anti-replay for live x402). */
@@ -306,6 +315,23 @@ export class Store {
     if (!piece) return;
     piece.unlocks += 1;
     piece.totalPaid6 += price6;
+  }
+
+  /** Normalize an entitlement key so addresses match case-insensitively. */
+  private entitlementKey(pieceId: string, reader: string): string {
+    return `${pieceId}::${reader.trim().toLowerCase()}`;
+  }
+
+  /** Grant a reader durable access to a piece (called after a successful unlock). */
+  grantEntitlement(pieceId: string, reader: string): void {
+    if (!reader.trim()) return;
+    this.entitlements.add(this.entitlementKey(pieceId, reader));
+  }
+
+  /** True when this reader has already paid to unlock this piece. */
+  hasEntitlement(pieceId: string, reader: string): boolean {
+    if (!reader.trim()) return false;
+    return this.entitlements.has(this.entitlementKey(pieceId, reader));
   }
 
   // ── x402 payment challenges ──────────────────────────────────────────────────

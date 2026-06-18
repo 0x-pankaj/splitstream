@@ -316,6 +316,23 @@ export const appRouter = router({
         return piece ? serializePiece(piece) : null;
       }),
 
+    /**
+     * Check whether a reader already owns a piece and, if so, hand back the
+     * gated content WITHOUT charging again — "pay once, keep access". The web
+     * calls this on load with a stable per-browser reader id so a paid unlock
+     * survives refreshes and return visits. Content is returned only when
+     * entitled (never leaks to a non-owner).
+     */
+    access: publicProcedure
+      .input(z.object({ pieceId: z.string().min(1), reader: z.string().min(1).max(128) }))
+      .query(({ ctx, input }) => {
+        const piece = ctx.store.getPiece(input.pieceId);
+        if (!piece) return { entitled: false, content: null as string | null };
+        const entitled = ctx.store.hasEntitlement(input.pieceId, input.reader);
+        const content = entitled && piece.kind !== "api" ? piece.content ?? null : null;
+        return { entitled, content };
+      }),
+
     /** Publisher registers a piece (content or paid API). Requires an API key. */
     create: protectedProcedure
       .input(CreatePieceSchema)

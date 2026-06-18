@@ -240,8 +240,10 @@ export async function payForPiece(
   // happens through payLiveForPiece / the x402 route.
   const batch = await processBulkPayout(store, tenant, input, now, { forceSimulated: true });
 
-  // 5) Record the unlock for the traction counter.
+  // 5) Record the unlock for the traction counter, and grant the reader durable
+  //    access so a return visit / refresh re-reads for free (pay once, keep it).
   store.recordUnlock(piece.id, piece.price6);
+  if (opts.payer) store.grantEntitlement(piece.id, opts.payer);
   const updated = store.getPiece(piece.id)!;
 
   // 6) Assemble the reader-facing receipt, aligning settlements to contributors.

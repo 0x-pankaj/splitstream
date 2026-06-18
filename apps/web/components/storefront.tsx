@@ -4,9 +4,9 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatUsdc6 } from "@arcane/shared";
-import { trpc, errorInfo } from "../lib/trpc";
+import { trpc, errorInfo, getReaderId } from "../lib/trpc";
 import { ChainBadge, PathBadge, Pill, TxLink } from "./ui";
 
 export type Piece = Awaited<ReturnType<typeof trpc.pieces.list.query>>[number];
@@ -430,6 +430,23 @@ export function PieceCard({ piece, onUnlocked, live }: { piece: Piece; onUnlocke
   const [call, setCall] = useState<ServiceCall | null>(null);
   const [livePay, setLivePay] = useState<LivePay | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Content this browser already paid for — fetched on load so a refresh / return
+  // visit keeps access without paying again ("pay once, keep reading").
+  const [owned, setOwned] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isApi || !piece.hasContent) return;
+    let cancelled = false;
+    trpc.pieces.access
+      .query({ pieceId: piece.id, reader: getReaderId() })
+      .then((r) => {
+        if (!cancelled && r.entitled && r.content) setOwned(r.content);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [piece.id, piece.hasContent, isApi]);
 
   const run = async () => {
     setBusy(true);
@@ -439,8 +456,9 @@ export function PieceCard({ piece, onUnlocked, live }: { piece: Piece; onUnlocke
         const result = await trpc.pieces.callApi.mutate({ pieceId: piece.id, payer: "web-agent" });
         setCall(result);
       } else {
-        const result = await trpc.pieces.unlock.mutate({ pieceId: piece.id, payer: "web-reader" });
+        const result = await trpc.pieces.unlock.mutate({ pieceId: piece.id, payer: getReaderId() });
         setUnlock(result);
+        if (result.content) setOwned(result.content);
       }
       onUnlocked?.();
     } catch (e) {
@@ -507,15 +525,21 @@ export function PieceCard({ piece, onUnlocked, live }: { piece: Piece; onUnlocke
         <span>{piece.chains.length} chain{piece.chains.length === 1 ? "" : "s"}</span>
       </div>
 
-      <button
-        onClick={run}
-        disabled={busy}
-        className={`mt-4 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-60 ${
-          isApi ? "bg-amber-400/90 text-slate-900 hover:bg-amber-300" : "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400"
-        }`}
-      >
-        {busy ? (isApi ? "Paying & calling…" : "Splitting across chains…") : isApi ? `Pay & call · $${piece.price}` : `Unlock for $${piece.price}`}
-      </button>
+      {!isApi && owned && !unlock ? (
+        <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300">
+          ✓ You own this — unlocked (no charge)
+        </div>
+      ) : (
+        <button
+          onClick={run}
+          disabled={busy}
+          className={`mt-4 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-60 ${
+            isApi ? "bg-amber-400/90 text-slate-900 hover:bg-amber-300" : "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400"
+          }`}
+        >
+          {busy ? (isApi ? "Paying & calling…" : "Splitting across chains…") : isApi ? `Pay & call · $${piece.price}` : `Unlock for $${piece.price}`}
+        </button>
+      )}
 
       {live ? (
         <button
@@ -528,7 +552,7 @@ export function PieceCard({ piece, onUnlocked, live }: { piece: Piece; onUnlocke
       ) : null}
 
       {error ? <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div> : null}
-      {unlock ? <FanOut unlock={unlock} /> : null}
+      {unlock ? <FanOut unlock={unlock} /> : owned ? <ContentReveal content={owned} /> : null}
       {livePay ? (
         <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4">
           <div className="mb-2 text-sm font-semibold text-emerald-300">✅ Real settlement on Arc Testnet</div>

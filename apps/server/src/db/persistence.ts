@@ -6,7 +6,7 @@
  * entrypoint; the Vitest suite never touches SQLite.
  */
 
-import type { AgentWallet, AuditEntry } from "@arcane/shared";
+import type { AgentWallet, AuditEntry, Piece } from "@arcane/shared";
 import type { ApiKey, RecipientRecord, Store, Tenant } from "./store.js";
 
 /** JSON.stringify replacer that encodes bigint as a tagged string. */
@@ -37,6 +37,9 @@ interface Snapshot {
   apiKeys?: SerializedApiKey[];
   dailyLimits?: Array<[string, bigint]>;
   recipients?: Array<[string, RecipientRecord[]]>;
+  /** SplitStream pieces (with accumulated traction) and reader entitlements. */
+  pieces?: Piece[];
+  entitlements?: string[];
 }
 
 type SqliteDb = {
@@ -73,6 +76,12 @@ export async function initPersistence(store: Store, path: string): Promise<() =>
       for (const [tid, lim] of snap.dailyLimits ?? []) store.setDailyLimit(tid, lim);
       for (const [tid, recs] of snap.recipients ?? [])
         for (const r of recs) store.addRecipient(tid, r);
+      // Restore pieces (preserving accumulated unlocks/payouts) and entitlements
+      // so a redeploy keeps published content, the traction counter, and who has
+      // already paid. Overwrites the freshly-seeded same-id pieces with their
+      // accumulated state.
+      for (const p of snap.pieces ?? []) store.pieces.set(p.id, p);
+      for (const e of snap.entitlements ?? []) store.entitlements.add(e);
       console.log(
         `[persistence] restored ${store.audit.length} audit entries, ` +
           `${store.tenants.size} tenants from ${path}`,
@@ -99,6 +108,8 @@ export async function initPersistence(store: Store, path: string): Promise<() =>
         recipients: [...store.recipients.entries()].map(
           ([tid, byKey]) => [tid, [...byKey.values()]] as [string, RecipientRecord[]],
         ),
+        pieces: [...store.pieces.values()],
+        entitlements: [...store.entitlements],
       };
       const json = JSON.stringify(snap, replacer);
       db.query("INSERT OR REPLACE INTO snapshot (id, json) VALUES (1, ?)").run(json);

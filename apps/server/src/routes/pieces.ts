@@ -126,6 +126,19 @@ export function pieceRoutes(store: Store): Hono {
     return c.json({ ok: true, piece: pieceView(piece) });
   });
 
+  // Public access check: a reader who already paid re-reads for free. Returns the
+  // gated content only when the reader is entitled — never leaks to a non-owner.
+  app.get("/:id/access", (c) => {
+    const piece = store.getPiece(c.req.param("id"));
+    if (!piece) {
+      return c.json({ code: "NOT_FOUND", message: "No such piece" }, 404);
+    }
+    const reader = c.req.query("reader") ?? "";
+    const entitled = store.hasEntitlement(piece.id, reader);
+    const content = entitled && piece.kind !== "api" ? piece.content ?? null : null;
+    return c.json({ ok: true, entitled, content });
+  });
+
   // Public unlock: a reader (or agent) pays and the price fans out to contributors.
   app.post("/:id/pay", async (c) => {
     try {
