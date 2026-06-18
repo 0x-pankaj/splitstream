@@ -68,9 +68,9 @@ app.use(
 
 // Persist on a light interval and on shutdown.
 const interval = setInterval(persist, 5_000);
-function shutdown() {
+async function shutdown() {
   clearInterval(interval);
-  persist();
+  await persist(); // flush the final snapshot (awaits the async D1 backend)
   process.exit(0);
 }
 process.on("SIGINT", shutdown);
