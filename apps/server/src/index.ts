@@ -71,12 +71,27 @@ app.use(
 // Remote MCP over Streamable HTTP — ANY MCP client (Claude Code, Cursor, …) adds
 // it by URL, no local clone or Bun needed:
 //   claude mcp add --transport http splitstream https://<host>/mcp
-// Stateless: a fresh MCP server + transport per request, bound to the LIVE store,
-// so remote agents discover and pay the real catalog (list_pieces / call_api / …).
+// Session-based: `initialize` (no session header) spins up a server+transport
+// bound to the LIVE store and returns an Mcp-Session-Id; subsequent requests
+// carrying that id reuse the same initialized session. Agents discover and pay
+// the real catalog (list_pieces / call_api / …).
+const mcpSessions = new Map<string, StreamableHTTPTransport>();
 app.all("/mcp", async (c) => {
-  const mcp = createMcpServer(store);
-  const transport = new StreamableHTTPTransport();
-  await mcp.connect(transport);
+  const sid = c.req.header("mcp-session-id");
+  let transport = sid ? mcpSessions.get(sid) : undefined;
+  if (!transport) {
+    transport = new StreamableHTTPTransport({
+      sessionIdGenerator: () => crypto.randomUUID(),
+      onsessioninitialized: (id: string) => {
+        mcpSessions.set(id, transport!);
+      },
+    });
+    transport.onclose = () => {
+      if (transport!.sessionId) mcpSessions.delete(transport!.sessionId);
+    };
+    const mcp = createMcpServer(store);
+    await mcp.connect(transport);
+  }
   return (await transport.handleRequest(c)) ?? c.body(null, 204);
 });
 
