@@ -108,7 +108,27 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
 
 ## Build State (UPDATE THIS LAST, EVERY SESSION)
 
-**Last updated:** session 2 (Phases 2–4).
+**Last updated:** session 3 (production deploy).
+
+**DEPLOYED (session 3):**
+- **GitHub:** pushed to `git@github.com:0x-pankaj/splitstream.git` (branch `master`).
+  Secrets stay gitignored (`.env`, `.env.live` never committed).
+- **API on Railway (LIVE Arc mode):** project `splitstream` / service
+  `splitstream-api`. Public URL: **https://splitstream-api-production.up.railway.app**
+  (`/health` → `onchainEnabled:true`, chain 5042002). Built from root `Dockerfile`
+  (node:22 base + Bun runtime for `bun:sqlite`; pnpm `--frozen-lockfile` install).
+  Live env (relayer key, vault, compliance guard, platform fee wallet, demo-agent
+  key, OpenRouter key, `LIVE_BRIDGE`/`LIVE_X402=true`) set as Railway variables.
+  Smoke-tested: storefront unlock fans out base/arbitrum/solana in 395ms (bundled
+  path settles simulated → relayer not drained; real x402 / live-agent paths
+  settle on-chain). Deploy config: `Dockerfile`, `railway.json`, `.dockerignore`,
+  `.railwayignore`.
+- **Frontend (Vercel — user-driven):** root dir `apps/web`, framework Next.js,
+  env `NEXT_PUBLIC_API_URL=https://splitstream-api-production.up.railway.app`.
+  `next build` verified clean locally (7 routes).
+- **Relayer funding note:** real on-chain settlement (x402 / live-agent) draws the
+  relayer `0x8984…7154c` Arc USDC (~17 USDC at session 2). Top up via Circle
+  faucet for sustained live traction.
 
 **Done:**
 - Phase 0 (fork, git, docs), **Phase 1** (backend split flow).
