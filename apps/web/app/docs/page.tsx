@@ -237,9 +237,11 @@ export default function DocsPage() {
 
           <section className="space-y-3">
             <H id="buy-mcp">A. Install in your AI (MCP)</H>
-            <p className="text-sm text-slate-300">Add SplitStream&apos;s MCP server to any MCP client (Claude, Cursor, …) <strong>once</strong>. Your AI then has tools to browse and pay for services — the user just talks normally.</p>
-            <Code label="install once">{`claude mcp add splitstream -- bun run apps/server/src/mcp/stdio.ts`}</Code>
+            <p className="text-sm text-slate-300">Add SplitStream&apos;s <strong>hosted</strong> MCP server to any MCP client (Claude Code, Cursor, …) by <strong>URL — no clone, no install</strong>. Your AI then has tools to browse and pay for the live catalog; the user just talks normally.</p>
+            <Code label="install once — remote, nothing to download">{`claude mcp add --transport http splitstream https://splitstream-api-production.up.railway.app/mcp`}</Code>
+            <p className="text-sm text-slate-400 mt-2">Other clients (Cursor, Windsurf, …): add an HTTP/Streamable MCP server pointing at <code className="mono">https://splitstream-api-production.up.railway.app/mcp</code>.</p>
             <p className="text-sm text-slate-400 mt-2">Tools the agent gains: <code className="mono">list_pieces</code>, <code className="mono">call_api</code>, <code className="mono">pay_for_piece</code> (+ treasury tools).</p>
+            <p className="text-sm text-slate-500 mt-2">Local dev alternative (needs the repo + Bun): <code className="mono">claude mcp add splitstream -- bun run apps/server/src/mcp/stdio.ts</code></p>
             <Code label="then the human just asks — the AI discovers + pays">{`User:  "What's the USD→EUR rate right now?"
 AI:    list_pieces → finds "FX Rate API"
        call_api(pieceId) → pays $0.01 → returns { "rates": { "EUR": 0.86 } }
@@ -329,6 +331,8 @@ POST /api/v1/pieces/<id>/call
                     <tr><td className="py-1 pr-4">GET</td><td className="py-1 pr-4">/api/v1/pieces/:id</td><td className="py-1">one piece</td></tr>
                     <tr><td className="py-1 pr-4">POST</td><td className="py-1 pr-4">/api/v1/pieces/:id/pay</td><td className="py-1">unlock content → split</td></tr>
                     <tr><td className="py-1 pr-4">POST</td><td className="py-1 pr-4">/api/v1/pieces/:id/call</td><td className="py-1">x402 pay-per-call (API)</td></tr>
+                    <tr><td className="py-1 pr-4">POST</td><td className="py-1 pr-4">/api/v1/pieces/:id/claim</td><td className="py-1">claim after a real wallet payment</td></tr>
+                    <tr><td className="py-1 pr-4">ALL</td><td className="py-1 pr-4">/mcp</td><td className="py-1">remote MCP (Streamable HTTP)</td></tr>
                   </tbody>
                 </table>
               </div>

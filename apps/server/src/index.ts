@@ -12,6 +12,8 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { trpcServer } from "@hono/trpc-server";
+import { StreamableHTTPTransport } from "@hono/mcp";
+import { createMcpServer } from "./mcp/server.js";
 import { config } from "./config.js";
 import { store } from "./db/store.js";
 import { seedDemo, DEMO_API_KEY } from "./db/seed.js";
@@ -65,6 +67,18 @@ app.use(
       makeContext(c.req.header("x-api-key"))) as never,
   }),
 );
+
+// Remote MCP over Streamable HTTP — ANY MCP client (Claude Code, Cursor, …) adds
+// it by URL, no local clone or Bun needed:
+//   claude mcp add --transport http splitstream https://<host>/mcp
+// Stateless: a fresh MCP server + transport per request, bound to the LIVE store,
+// so remote agents discover and pay the real catalog (list_pieces / call_api / …).
+app.all("/mcp", async (c) => {
+  const mcp = createMcpServer(store);
+  const transport = new StreamableHTTPTransport();
+  await mcp.connect(transport);
+  return (await transport.handleRequest(c)) ?? c.body(null, 204);
+});
 
 // Persist on a light interval and on shutdown.
 const interval = setInterval(persist, 5_000);

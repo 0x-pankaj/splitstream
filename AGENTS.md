@@ -9,23 +9,30 @@ Live API base: **`https://splitstream-api-production.up.railway.app`**
 
 ---
 
-## 1. The fastest path — Claude Code MCP (local)
+## 1. The fastest path — hosted MCP by URL (no install)
 
-Register SplitStream as an MCP server and Claude Code gets tools to browse and
-pay creators directly in chat:
+The MCP server is **hosted** on the deployed API, so any MCP client adds it by
+URL — no clone, no Bun, no code. It's bound to the **live** catalog.
 
 ```bash
-claude mcp add splitstream -- bun run /home/pankaj/turbine/splitstream/apps/server/src/mcp/stdio.ts
+claude mcp add --transport http splitstream https://splitstream-api-production.up.railway.app/mcp
 ```
+
+Other clients (Cursor, Windsurf, …): add a Streamable-HTTP MCP server pointing at
+`https://splitstream-api-production.up.railway.app/mcp`.
 
 Tools exposed: `list_pieces`, `pay_for_piece`, `call_api`,
 `get_treasury_balance`, `set_agent_policy`. Try:
 
 > "List the SplitStream pieces, then pay for the FX API and show me the result."
 
-This runs a local, self-contained instance (its own seeded catalog, simulated
-settlement) — perfect for demoing the agent loop offline. For **real** on-chain
-settlement against the deployed service, use path 2 or 3.
+Local dev alternative (needs the repo + Bun, runs a self-contained instance):
+
+```bash
+claude mcp add splitstream -- bun run /home/pankaj/turbine/splitstream/apps/server/src/mcp/stdio.ts
+```
+
+For **real** on-chain settlement against the deployed service, use path 2 or 3.
 
 ---
 
