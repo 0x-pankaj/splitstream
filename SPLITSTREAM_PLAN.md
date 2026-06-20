@@ -115,7 +115,29 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
 
 ## Build State (UPDATE THIS LAST, EVERY SESSION)
 
-**Last updated:** session 4 (mobile + walletless buy + restore + buyers/agent-fix).
+**Last updated:** session 4 (… + My Purchases library + recovery codes).
+
+**My Purchases library + no-wallet recovery codes (session 4):**
+- **Clarified model:** purchases ARE server-side (the `entitlements` set, persisted
+  in the D1/sqlite snapshot) — the local cache is only a convenience. The limit was
+  *identity* for anonymous browser-id buyers (device-local). User chose: build a
+  library page + add recovery codes.
+- **`/library` page (My Purchases):** server-backed list of everything the reader
+  owns. Loads via `pieces.library({reader})` (browser id), can merge wallet
+  purchases (one signature → `pieces.restore`), caches content so piece pages reveal
+  instantly. Nav link added to the storefront header.
+- **Recovery codes (no-wallet portability):** `services/recovery.ts` +
+  `store.recoveryCodes` map (persisted). `pieces.createRecoveryCode({reader})` mints
+  a short bearer code (e.g. `SS-AB7K-9QXM`, unambiguous alphabet);
+  `pieces.redeemRecoveryCode({code,reader})` COPIES the source reader's entitlements
+  onto the redeeming device's id (both keep access) and returns pieces+content to
+  cache. `pieces.library` returns content for browser ids only — a bare wallet
+  address gets metadata only (content stays behind the signature `restore`).
+- Tests **68/68** (+5 recovery: issue/redeem copy, messy-code normalize, empty-mint
+  reject, unknown-code reject, library wallet-vs-browser content gating). Typecheck +
+  web build clean (8 routes). Deploy: push (Vercel) + `railway up` (API).
+
+**Unique-buyers counter + agent-button fix (session 4):**
 
 **Unique-buyers counter + agent-button fix (session 4):**
 - **Buyers traction number.** New `store.buyers` Set + `recordBuyer()` (lowercased,

@@ -53,6 +53,9 @@ export default function Storefront() {
           </p>
         </div>
         <nav className="flex shrink-0 items-center gap-2">
+          <Link href="/library" className="flex-1 rounded-lg border border-slate-600 px-3 py-2 text-center text-xs text-slate-300 hover:bg-slate-700/40 sm:flex-none">
+            My purchases
+          </Link>
           <Link href="/docs" className="flex-1 rounded-lg border border-slate-600 px-3 py-2 text-center text-xs text-slate-300 hover:bg-slate-700/40 sm:flex-none">
             Docs
           </Link>

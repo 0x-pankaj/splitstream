@@ -43,6 +43,8 @@ export interface Snapshot {
   entitlements?: string[];
   /** Distinct buyers across all pay flows (unique-buyers traction count). */
   buyers?: string[];
+  /** Recovery code → reader id (no-wallet library restore). */
+  recoveryCodes?: Array<[string, string]>;
   /** Real on-chain settlements (verifiable Arc traction). */
   onchainSettlements?: OnchainSettlement[];
 }
@@ -67,6 +69,7 @@ export function buildSnapshotJson(store: Store): string {
     pieces: [...store.pieces.values()],
     entitlements: [...store.entitlements],
     buyers: [...store.buyers],
+    recoveryCodes: [...store.recoveryCodes.entries()],
     onchainSettlements: store.onchainSettlements,
   };
   return JSON.stringify(snap, replacer);
@@ -85,5 +88,6 @@ export function restoreFromJson(store: Store, json: string): void {
   for (const p of snap.pieces ?? []) store.pieces.set(p.id, p);
   for (const e of snap.entitlements ?? []) store.entitlements.add(e);
   for (const b of snap.buyers ?? []) store.buyers.add(b);
+  for (const [c, r] of snap.recoveryCodes ?? []) store.recoveryCodes.set(c, r);
   if (snap.onchainSettlements) store.onchainSettlements = snap.onchainSettlements;
 }

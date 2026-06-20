@@ -111,6 +111,15 @@ export class Store {
   buyers = new Set<string>();
 
   /**
+   * Recovery codes for no-wallet buyers: a short, shareable code → the reader id
+   * that owns some purchases. Redeeming copies that reader's entitlements onto the
+   * redeeming device's id, so an anonymous buyer can restore their library on a
+   * new device without a wallet or signup. The code is a bearer token (whoever
+   * holds it can claim the purchases) — fine for low-value pay-per-piece content.
+   */
+  recoveryCodes = new Map<string, string>();
+
+  /**
    * REAL on-chain settlements on Arc (the live-agent button + live x402 path):
    * the verifiable, "nothing simulated" traction we headline for judges. Each
    * entry carries the agent's payment tx and every contributor payout tx, so the
@@ -366,6 +375,16 @@ export class Store {
   recordBuyer(buyer: string | null | undefined): void {
     const id = buyer?.trim().toLowerCase();
     if (id) this.buyers.add(id);
+  }
+
+  /** Map a recovery code to the reader id that issued it. */
+  createRecoveryCode(code: string, reader: string): void {
+    if (code.trim() && reader.trim()) this.recoveryCodes.set(code, reader.trim());
+  }
+
+  /** The reader id behind a recovery code, if it exists. */
+  readerForRecoveryCode(code: string): string | undefined {
+    return this.recoveryCodes.get(code);
   }
 
   /** True when this reader has already paid to unlock this piece. */

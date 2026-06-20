@@ -33,6 +33,7 @@ import { runReadingAgent } from "../services/readingAgent.js";
 import { payLiveForPiece, liveAgentReady, sponsoredUnlock } from "../services/liveAgent.js";
 import { walletPaymentInfo, claimWalletPayment } from "../services/walletPayment.js";
 import { restoreEntitlements } from "../services/walletRestore.js";
+import { issueRecoveryCode, redeemRecoveryCode, readerLibrary } from "../services/recovery.js";
 import { CreatePieceSchema, CallPieceSchema, parseUsdc6, ARC_TESTNET } from "@arcane/shared";
 
 /** Arc L1 native USDC system contract (6dp ERC-20 view). */
@@ -359,6 +360,37 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         try {
           return await restoreEntitlements(ctx.store, input);
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
+    /**
+     * A reader's library — every piece they own. Content is returned for an
+     * unguessable browser reader id; a bare wallet address gets metadata only
+     * (wallets reveal content via the signature-gated `restore`).
+     */
+    library: publicProcedure
+      .input(z.object({ reader: z.string().min(1).max(128) }))
+      .query(({ ctx, input }) => readerLibrary(ctx.store, input.reader)),
+
+    /** Mint a recovery code that backs up this reader's purchases (no-wallet portability). */
+    createRecoveryCode: publicProcedure
+      .input(z.object({ reader: z.string().min(1).max(128) }))
+      .mutation(({ ctx, input }) => {
+        try {
+          return issueRecoveryCode(ctx.store, input.reader);
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
+    /** Redeem a recovery code on a new device — copies the library onto this reader. */
+    redeemRecoveryCode: publicProcedure
+      .input(z.object({ code: z.string().min(1).max(64), reader: z.string().min(1).max(128) }))
+      .mutation(({ ctx, input }) => {
+        try {
+          return redeemRecoveryCode(ctx.store, input.code, input.reader);
         } catch (err) {
           throw toTRPCError(err);
         }
