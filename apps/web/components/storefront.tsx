@@ -8,7 +8,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { formatUsdc6, parseUsdc6 } from "@arcane/shared";
 import { trpc, errorInfo, getReaderId, API_URL, getApiKey } from "../lib/trpc";
-import { payPieceOnchain, connectedAddress } from "../lib/wallet";
+import { payPieceOnchain, rememberWallet, rememberedWallet } from "../lib/wallet";
 import { ChainBadge, PathBadge, Pill, TxLink } from "./ui";
 
 export type PaymentInfo = Awaited<ReturnType<typeof trpc.pieces.paymentInfo.query>>;
@@ -242,7 +242,6 @@ export function FanOut({ unlock }: { unlock: Unlock }) {
         </div>
         <Pill text={`${unlock.batch.instantCount} instant`} tone="emerald" />
       </div>
-      {unlock.content ? <ContentReveal content={unlock.content} /> : null}
       <div className="space-y-2">
         {unlock.contributors.map((c, i) => (
           <div key={i} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700/60 bg-slate-900/40 px-3 py-2">
@@ -623,12 +622,11 @@ export function PieceCard({
   useEffect(() => {
     if (isApi || !piece.hasContent) return;
     let cancelled = false;
-    // Check access by the browser reader id, and — if a wallet is already
-    // connected — by the wallet address too (portable, cross-device ownership).
+    // Check ownership by the browser reader id AND any previously-paid wallet
+    // address (remembered locally). Both are plain strings — we NEVER call the
+    // wallet here, so refreshing the page never triggers a connect popup.
     const check = async () => {
-      const readers = [getReaderId()];
-      const wallet = await connectedAddress();
-      if (wallet) readers.push(wallet);
+      const readers = [getReaderId(), rememberedWallet()].filter(Boolean) as string[];
       for (const reader of readers) {
         const r = await trpc.pieces.access.query({ pieceId: piece.id, reader }).catch(() => null);
         if (!cancelled && r?.entitled && r.content) {
@@ -660,6 +658,7 @@ export function PieceCard({
       });
       const claim = await trpc.pieces.claimPaid.mutate({ pieceId: piece.id, txHash });
       setWalletPay(claim);
+      if (claim.payer) rememberWallet(claim.payer);
       if (claim.content) setOwned(claim.content);
       onUnlocked?.();
     } catch (e) {
@@ -758,9 +757,12 @@ export function PieceCard({
         )}
       </div>
 
-      {!isApi && owned && !unlock ? (
-        <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300">
-          ✓ You own this — unlocked (no charge)
+      {!isApi && owned ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300">
+          <span>✓ Unlocked — you own this</span>
+          {detailHref ? (
+            <Link href={detailHref} className="text-indigo-300 hover:text-indigo-200">Open &amp; read the full →</Link>
+          ) : null}
         </div>
       ) : (
         <button
@@ -821,7 +823,11 @@ export function PieceCard({
           </div>
         </div>
       ) : null}
-      {unlock ? <FanOut unlock={unlock} /> : owned ? <ContentReveal content={owned} /> : null}
+      {unlock ? <FanOut unlock={unlock} /> : null}
+      {/* Full content renders only on the dedicated reading page (no detailHref);
+          on the catalog, cards stay compact and link out via the "Open & read"
+          link in the unlocked banner above. */}
+      {owned && !detailHref ? <ContentReveal content={owned} /> : null}
       {livePay ? (
         <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4">
           <div className="mb-2 text-sm font-semibold text-emerald-300">✅ Real settlement on Arc Testnet</div>

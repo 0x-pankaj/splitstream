@@ -74,6 +74,22 @@ export async function connectedAddress(): Promise<string | null> {
   }
 }
 
+// Remember the wallet a reader last paid from — a plain string in localStorage —
+// so we can re-check entitlements on load WITHOUT ever touching the wallet (no
+// connect popup on refresh). Set only after an explicit, user-initiated payment.
+const PAID_WALLET_KEY = "splitstream_wallet";
+
+export function rememberWallet(address: string): void {
+  if (typeof window !== "undefined" && address) {
+    window.localStorage.setItem(PAID_WALLET_KEY, address.toLowerCase());
+  }
+}
+
+export function rememberedWallet(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(PAID_WALLET_KEY);
+}
+
 export interface PayParams {
   payTo: string;
   usdc: string;
