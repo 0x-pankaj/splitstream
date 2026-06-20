@@ -90,6 +90,41 @@ export function rememberedWallet(): string | null {
   return window.localStorage.getItem(PAID_WALLET_KEY);
 }
 
+/** First line of the ownership message — MUST match the server's OWNERSHIP_DOMAIN. */
+const OWNERSHIP_DOMAIN =
+  "SplitStream: prove wallet ownership to restore your unlocked content.";
+
+/** Build the exact message the wallet signs to prove it controls `address`. */
+export function buildOwnershipMessage(address: string, issuedISO: string): string {
+  return `${OWNERSHIP_DOMAIN}\n\nWallet: ${address}\nIssued: ${issuedISO}`;
+}
+
+/** Prompt the wallet to connect and return the selected address. */
+export async function connectWallet(): Promise<string> {
+  const eth = getProvider();
+  const accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
+  const address = accounts[0];
+  if (!address) throw new Error("No wallet account selected.");
+  return address;
+}
+
+/**
+ * Prove ownership of the connected wallet by signing a fresh, timestamped message
+ * (gasless — no chain switch, no fee). The server recovers the signer from this
+ * to return the wallet's unlocked content ("restore purchases"). Returns the
+ * exact (address, message, signature) triple the server needs.
+ */
+export async function signOwnership(): Promise<{ address: string; message: string; signature: string }> {
+  const eth = getProvider();
+  const address = await connectWallet();
+  const message = buildOwnershipMessage(address, new Date().toISOString());
+  const signature = (await eth.request({
+    method: "personal_sign",
+    params: [message, address],
+  })) as string;
+  return { address, message, signature };
+}
+
 export interface PayParams {
   payTo: string;
   usdc: string;

@@ -108,7 +108,35 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
 
 ## Build State (UPDATE THIS LAST, EVERY SESSION)
 
-**Last updated:** session 4 (mobile + walletless sponsored buy).
+**Last updated:** session 4 (mobile + walletless buy + wallet-identity restore).
+
+**Wallet = portable identity · "restore purchases" (session 4):**
+- **Problem closed (content leak).** Entitlements keyed to a wallet address were
+  revealable via public `pieces.access` just by knowing the address — and payer
+  addresses are public on-chain. `pieces.access` now returns `content: null` for
+  any reader matching `^0x[40 hex]$` (the `entitled` boolean, which is already
+  on-chain-public, still returns). Unguessable browser reader ids keep the
+  lightweight content path (the no-wallet sponsored flow).
+- **Restore by signature.** New `services/walletRestore.ts` +
+  `store.entitledPieceIdsFor(reader)` + public tRPC `pieces.restore({ address,
+  message, signature })`. The wallet signs a fresh, timestamped message
+  (`OWNERSHIP_DOMAIN`, 10-min window); the server recovers the signer
+  (`recoverMessageAddress`), confirms it matches the claimed address, and returns
+  every piece that wallet has unlocked WITH content. Gasless (personal_sign, no
+  chain switch). This makes the wallet a portable identity: pay from a browser
+  wallet, a terminal/CLI agent (claim flow), or x402 → connect that wallet
+  anywhere + one signature → all your content.
+- **Web.** `lib/wallet.ts` gains `connectWallet` + `signOwnership`; new
+  `lib/owned.ts` is a local unlocked-content cache with pub/sub so a restore
+  reveals across all mounted cards instantly. Every unlock path (sponsored,
+  wallet-claim, soft) now caches content locally → same-device refresh reveals
+  with no network/signature. New `RestorePurchases` card ("🔑 Connect & restore
+  purchases") on the storefront + piece page (only renders when an injected wallet
+  exists). PieceCard's on-load check now uses ONLY the browser reader id (dropped
+  the address→access content fetch that fed the leak).
+- Tests **62/62** (+4 restore: valid signature returns owned pieces, unpaid wallet
+  gets nothing, wrong signer rejected, stale proof rejected). Typecheck clean; web
+  builds clean (6 app routes). Deploy: push (Vercel) + `railway up` (API).
 
 **Mobile-perfect storefront + walletless buy (session 4):**
 - **Walletless sponsored unlock.** New `sponsoredUnlock(store, piece, reader)` in

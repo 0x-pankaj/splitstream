@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { trpc, errorInfo } from "../../../lib/trpc";
-import { PieceCard, type Piece } from "../../../components/storefront";
+import { PieceCard, RestorePurchases, type Piece } from "../../../components/storefront";
 
 export default function PiecePage() {
   const params = useParams<{ id: string }>();
@@ -50,7 +50,10 @@ export default function PiecePage() {
       ) : !piece ? (
         <div className="card p-6 text-sm text-slate-400">No such piece.</div>
       ) : (
-        <PieceCard piece={piece} onUnlocked={refresh} />
+        <div className="space-y-4">
+          <PieceCard piece={piece} onUnlocked={refresh} />
+          <RestorePurchases onRestored={refresh} />
+        </div>
       )}
     </main>
   );

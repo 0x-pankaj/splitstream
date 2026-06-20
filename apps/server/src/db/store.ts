@@ -359,6 +359,22 @@ export class Store {
     return this.entitlements.has(this.entitlementKey(pieceId, reader));
   }
 
+  /**
+   * Every piece id this reader has unlocked. Powers "restore purchases" — a
+   * wallet (or browser id) proves who it is and gets back all its content.
+   * Reader is normalized the same way entitlements are stored (lowercased).
+   */
+  entitledPieceIdsFor(reader: string): string[] {
+    const norm = reader.trim().toLowerCase();
+    if (!norm) return [];
+    const suffix = `::${norm}`;
+    const ids: string[] = [];
+    for (const key of this.entitlements) {
+      if (key.endsWith(suffix)) ids.push(key.slice(0, -suffix.length));
+    }
+    return ids;
+  }
+
   /** Append a real on-chain settlement (bounded so memory/snapshot stay small). */
   recordOnchainSettlement(s: OnchainSettlement): void {
     this.onchainSettlements.push(s);

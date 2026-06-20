@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { trpc, errorInfo } from "../lib/trpc";
-import { AgentReader, OnchainTraction, PieceCard, TractionHero, type Piece, type Traction } from "../components/storefront";
+import { AgentReader, OnchainTraction, PieceCard, RestorePurchases, TractionHero, type Piece, type Traction } from "../components/storefront";
 
 export default function Storefront() {
   const [pieces, setPieces] = useState<Piece[]>([]);
@@ -80,6 +80,10 @@ export default function Storefront() {
           {error} — is the API running on :8787?
         </div>
       ) : null}
+
+      <div className="mt-6">
+        <RestorePurchases onRestored={refresh} />
+      </div>
 
       <section className="mt-8">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-300">Catalog</h2>

@@ -32,6 +32,7 @@ import { callPaidService, payForPiece, whitelistContributors } from "../services
 import { runReadingAgent } from "../services/readingAgent.js";
 import { payLiveForPiece, liveAgentReady, sponsoredUnlock } from "../services/liveAgent.js";
 import { walletPaymentInfo, claimWalletPayment } from "../services/walletPayment.js";
+import { restoreEntitlements } from "../services/walletRestore.js";
 import { CreatePieceSchema, CallPieceSchema, parseUsdc6, ARC_TESTNET } from "@arcane/shared";
 
 /** Arc L1 native USDC system contract (6dp ERC-20 view). */
@@ -330,8 +331,37 @@ export const appRouter = router({
         const piece = ctx.store.getPiece(input.pieceId);
         if (!piece) return { entitled: false, content: null as string | null };
         const entitled = ctx.store.hasEntitlement(input.pieceId, input.reader);
-        const content = entitled && piece.kind !== "api" ? piece.content ?? null : null;
+        // A bare wallet address is PUBLIC (it's in every on-chain payment tx), so
+        // we must NEVER hand back content for one here — that would let anyone who
+        // scrapes a payer address read the content free. Wallet owners reveal their
+        // content through `restore` (which requires a signature). Unguessable
+        // browser reader ids keep the lightweight path (the no-wallet flow).
+        const isWalletAddress = /^0x[a-fA-F0-9]{40}$/.test(input.reader);
+        const content =
+          entitled && !isWalletAddress && piece.kind !== "api" ? piece.content ?? null : null;
         return { entitled, content };
+      }),
+
+    /**
+     * Restore purchases: prove control of a wallet (via a signed message) and get
+     * back every piece that wallet has unlocked — no matter where it paid (browser,
+     * terminal/CLI agent, or x402). The wallet is a portable identity; the
+     * signature is what stops anyone from reading a public address's content.
+     */
+    restore: publicProcedure
+      .input(
+        z.object({
+          address: z.string().min(1).max(64),
+          message: z.string().min(1).max(2000),
+          signature: z.string().min(1).max(2000),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        try {
+          return await restoreEntitlements(ctx.store, input);
+        } catch (err) {
+          throw toTRPCError(err);
+        }
       }),
 
     /** Publisher registers a piece (content or paid API). Requires an API key. */

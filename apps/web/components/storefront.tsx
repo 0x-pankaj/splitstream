@@ -8,7 +8,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { formatUsdc6, parseUsdc6 } from "@arcane/shared";
 import { trpc, errorInfo, getReaderId, API_URL, getApiKey } from "../lib/trpc";
-import { payPieceOnchain, rememberWallet, rememberedWallet, hasWallet } from "../lib/wallet";
+import { payPieceOnchain, rememberWallet, hasWallet, signOwnership } from "../lib/wallet";
+import { getOwnedContent, cacheOwnedContent, subscribeOwned } from "../lib/owned";
 import { ChainBadge, PathBadge, Pill, TxLink } from "./ui";
 
 export type PaymentInfo = Awaited<ReturnType<typeof trpc.pieces.paymentInfo.query>>;
@@ -625,6 +626,66 @@ export function AgentReader({ onRun }: { onRun?: () => void }) {
   );
 }
 
+/**
+ * Connect a wallet and restore everything it has unlocked — whether it paid from
+ * this browser, a different device, a terminal/CLI agent, or an x402 call. One
+ * gasless signature proves ownership of the (public) address, then the content is
+ * cached to this device so the cards reveal it. The wallet is the portable
+ * identity that ties all those payment paths to one reader.
+ */
+export function RestorePurchases({ onRestored }: { onRestored?: () => void }) {
+  const [available, setAvailable] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setAvailable(hasWallet()), []);
+  if (!available) return null; // no injected wallet (e.g. a phone) → nothing to restore
+
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    setNote(null);
+    try {
+      const { address, message, signature } = await signOwnership();
+      const res = await trpc.pieces.restore.mutate({ address, message, signature });
+      for (const p of res.pieces) if (p.content) cacheOwnedContent(p.pieceId, p.content);
+      setNote(
+        res.count === 0
+          ? "No unlocked pieces found for that wallet yet."
+          : `Restored ${res.count} unlocked piece${res.count === 1 ? "" : "s"} to this device.`,
+      );
+      onRestored?.();
+    } catch (e) {
+      setError(errorInfo(e).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-sm text-slate-300">
+        <span className="font-semibold text-slate-100">Paid from a wallet or an agent?</span>{" "}
+        <span className="text-slate-400">
+          Connect it to restore your unlocked content here — one gasless signature, no re-payment.
+        </span>
+      </div>
+      <div className="flex flex-col items-stretch gap-1 sm:items-end">
+        <button
+          onClick={run}
+          disabled={busy}
+          className="w-full rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-2.5 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-400/20 disabled:opacity-60 sm:w-auto"
+        >
+          {busy ? "Check your wallet…" : "🔑 Connect & restore purchases"}
+        </button>
+        {note ? <span className="text-xs text-emerald-300">{note}</span> : null}
+        {error ? <span className="text-xs text-red-300">{error}</span> : null}
+      </div>
+    </div>
+  );
+}
+
 /** Receipt for a relayer-sponsored (walletless) unlock — real or simulated. */
 function SponsoredReceipt({ s }: { s: Sponsored }) {
   const real = s.mode === "live-arc";
@@ -708,20 +769,29 @@ export function PieceCard({
     setWalletAvailable(hasWallet());
   }, []);
 
+  // Reveal content already unlocked on this device from the local cache, and stay
+  // in sync when a "restore purchases" signature reveals more pieces at once.
+  useEffect(() => {
+    const cached = getOwnedContent(piece.id);
+    if (cached) setOwned(cached);
+    return subscribeOwned(() => {
+      const c = getOwnedContent(piece.id);
+      if (c) setOwned(c);
+    });
+  }, [piece.id]);
+
   useEffect(() => {
     if (isApi || !piece.hasContent) return;
     let cancelled = false;
-    // Check ownership by the browser reader id AND any previously-paid wallet
-    // address (remembered locally). Both are plain strings — we NEVER call the
-    // wallet here, so refreshing the page never triggers a connect popup.
+    // Server-side fallback for the no-wallet (sponsored) flow: only the unguessable
+    // per-browser reader id reveals content here. Wallet owners restore via a
+    // signature (Connect & restore) — a bare public address never returns content.
     const check = async () => {
-      const readers = [getReaderId(), rememberedWallet()].filter(Boolean) as string[];
-      for (const reader of readers) {
-        const r = await trpc.pieces.access.query({ pieceId: piece.id, reader }).catch(() => null);
-        if (!cancelled && r?.entitled && r.content) {
-          setOwned(r.content);
-          return;
-        }
+      const reader = getReaderId();
+      const r = await trpc.pieces.access.query({ pieceId: piece.id, reader }).catch(() => null);
+      if (!cancelled && r?.entitled && r.content) {
+        setOwned(r.content);
+        cacheOwnedContent(piece.id, r.content);
       }
     };
     void check();
@@ -748,7 +818,10 @@ export function PieceCard({
       const claim = await trpc.pieces.claimPaid.mutate({ pieceId: piece.id, txHash });
       setWalletPay(claim);
       if (claim.payer) rememberWallet(claim.payer);
-      if (claim.content) setOwned(claim.content);
+      if (claim.content) {
+        setOwned(claim.content);
+        cacheOwnedContent(piece.id, claim.content);
+      }
       onUnlocked?.();
     } catch (e) {
       setError(errorInfo(e).message);
@@ -767,7 +840,10 @@ export function PieceCard({
       } else {
         const result = await trpc.pieces.unlock.mutate({ pieceId: piece.id, payer: getReaderId() });
         setUnlock(result);
-        if (result.content) setOwned(result.content);
+        if (result.content) {
+          setOwned(result.content);
+          cacheOwnedContent(piece.id, result.content);
+        }
       }
       onUnlocked?.();
     } catch (e) {
@@ -786,7 +862,10 @@ export function PieceCard({
     try {
       const result = await trpc.pieces.sponsoredUnlock.mutate({ pieceId: piece.id, reader: getReaderId() });
       setSponsored(result);
-      if (result.content) setOwned(result.content);
+      if (result.content) {
+        setOwned(result.content);
+        cacheOwnedContent(piece.id, result.content);
+      }
       onUnlocked?.();
     } catch (e) {
       setError(errorInfo(e).message);
