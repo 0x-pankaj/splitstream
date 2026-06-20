@@ -30,7 +30,7 @@ import { signupTenant } from "../services/onboarding.js";
 import { addTenantRecipient, removeTenantRecipient } from "../services/recipients.js";
 import { callPaidService, payForPiece, whitelistContributors } from "../services/splitEngine.js";
 import { runReadingAgent } from "../services/readingAgent.js";
-import { payLiveForPiece, liveAgentReady } from "../services/liveAgent.js";
+import { payLiveForPiece, liveAgentReady, sponsoredUnlock } from "../services/liveAgent.js";
 import { walletPaymentInfo, claimWalletPayment } from "../services/walletPayment.js";
 import { CreatePieceSchema, CallPieceSchema, parseUsdc6, ARC_TESTNET } from "@arcane/shared";
 
@@ -372,6 +372,27 @@ export const appRouter = router({
           const piece = ctx.store.getPiece(input.pieceId);
           if (!piece) throw new Error(`No such piece: ${input.pieceId}`);
           return await payLiveForPiece(ctx.store, piece);
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
+    /**
+     * Walletless buy: the platform relayer sponsors this reader's unlock. Used by
+     * mobile / no-wallet browsers — the relayer pays real USDC on Arc when funded
+     * (else mirror-mode simulated), and the reader gets a durable entitlement
+     * keyed to their browser id so the content stays unlocked on return visits.
+     */
+    sponsoredUnlock: publicProcedure
+      .input(z.object({ pieceId: z.string().min(1), reader: z.string().min(1).max(128) }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const piece = ctx.store.getPiece(input.pieceId);
+          if (!piece) throw new Error(`No such piece: ${input.pieceId}`);
+          if (piece.kind === "api") {
+            throw new Error("API pieces are pay-per-call — use callApi, not a sponsored unlock");
+          }
+          return await sponsoredUnlock(ctx.store, piece, input.reader);
         } catch (err) {
           throw toTRPCError(err);
         }

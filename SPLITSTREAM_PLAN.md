@@ -108,7 +108,40 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
 
 ## Build State (UPDATE THIS LAST, EVERY SESSION)
 
-**Last updated:** session 3 (production deploy).
+**Last updated:** session 4 (mobile + walletless sponsored buy).
+
+**Mobile-perfect storefront + walletless buy (session 4):**
+- **Walletless sponsored unlock.** New `sponsoredUnlock(store, piece, reader)` in
+  `services/liveAgent.ts`: the platform relayer pays for the reader. When
+  `liveAgentReady()` it settles REAL USDC on Arc (via `payLiveForPiece`, now
+  accepting `{ reader }` → grants entitlement + returns content); otherwise it
+  falls back to mirror-mode simulated settlement. Either way the reader gets a
+  durable entitlement keyed to their browser id and the gated content. Exposed as
+  public tRPC `pieces.sponsoredUnlock({ pieceId, reader })` (rejects api pieces —
+  those stay pay-per-call). This is the primary buy path on phones (no injected
+  wallet). The "💳 pay with your own wallet" button now renders ONLY when an
+  injected wallet exists (`hasWallet()`), so it never dead-ends on mobile.
+- **Remembering unlocks (the user's question).** Already-existing mechanism,
+  reused: a stable per-browser `reader` id in `localStorage` (`splitstream_reader`)
+  → server entitlement `(pieceId, reader)` → re-checked on load via `pieces.access`
+  → persisted in the D1/sqlite snapshot (survives restarts/redeploys). The
+  sponsored flow grants into the same store, so a phone buyer keeps access on
+  return visits. Limitation: tied to the device/browser (cleared if localStorage
+  is wiped or on a different device). The portable upgrade is wallet-address
+  keying (the existing `claimPaid` path remembers by on-chain payer); a future
+  email/passkey login would make identity cross-device.
+- **Mobile responsiveness.** `layout.tsx` gains a proper `viewport` export
+  (device-width, pinch-zoom to 5x, themeColor). Storefront header stacks on mobile
+  with full-width nav; `TractionHero` numbers scale down; `PieceCard` buttons are
+  full-width with bigger tap targets + a "no wallet needed" hint; `PublishForm`
+  revenue-split rows reflow from a 5-col grid into a 2-col card per row on phones;
+  `AgentReader` input/button stack; dashboard payout rows reflow from `grid-cols-12`
+  to a 2-col card on phones; consistent `px-4 sm:px-6` paddings across all pages.
+- Tests **58/58** (+2: sponsored simulated entitlement+content, api rejection).
+  Typecheck clean; web builds clean (7 routes). NOT yet deployed — push + redeploy
+  Railway API (new tRPC proc) and Vercel web to ship.
+
+**Last updated (prior):** session 3 (production deploy).
 
 **DEPLOYED (session 3):**
 - **GitHub:** pushed to `git@github.com:0x-pankaj/splitstream.git` (branch `master`).

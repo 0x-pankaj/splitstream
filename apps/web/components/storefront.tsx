@@ -8,7 +8,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { formatUsdc6, parseUsdc6 } from "@arcane/shared";
 import { trpc, errorInfo, getReaderId, API_URL, getApiKey } from "../lib/trpc";
-import { payPieceOnchain, rememberWallet, rememberedWallet } from "../lib/wallet";
+import { payPieceOnchain, rememberWallet, rememberedWallet, hasWallet } from "../lib/wallet";
 import { ChainBadge, PathBadge, Pill, TxLink } from "./ui";
 
 export type PaymentInfo = Awaited<ReturnType<typeof trpc.pieces.paymentInfo.query>>;
@@ -27,6 +27,7 @@ export type Traction = Awaited<ReturnType<typeof trpc.traction.stats.query>>;
 export type ReadingSession = Awaited<ReturnType<typeof trpc.agent.read.mutate>>;
 export type ServiceCall = Awaited<ReturnType<typeof trpc.pieces.callApi.mutate>>;
 export type LivePay = Awaited<ReturnType<typeof trpc.pieces.payLive.mutate>>;
+export type Sponsored = Awaited<ReturnType<typeof trpc.pieces.sponsoredUnlock.mutate>>;
 
 /** Format a 6dp base-unit string ("30000") as a USD display string ("$0.03"). */
 export function usd(base6: string): string {
@@ -67,7 +68,7 @@ export function TractionHero({ stats }: { stats: Traction | null }) {
     { label: "Chains", value: stats ? String(stats.chainCount) : "—", accent: "#22d3ee", prefix: "" },
   ];
   return (
-    <div className="card p-6">
+    <div className="card p-5 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
         <div className="text-[11px] uppercase tracking-wider text-slate-400">Live traction · paid out to creators</div>
         {stats ? <Pill text={stats.onchainMode === "live" ? "LIVE Arc" : "simulated"} tone={stats.onchainMode === "live" ? "emerald" : "slate"} /> : null}
@@ -75,7 +76,7 @@ export function TractionHero({ stats }: { stats: Traction | null }) {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {cells.map((c) => (
           <div key={c.label}>
-            <div className="text-3xl font-semibold tabular-nums" style={{ color: c.accent }}>
+            <div className="text-2xl font-semibold tabular-nums sm:text-3xl" style={{ color: c.accent }}>
               {c.prefix}
               {c.value}
             </div>
@@ -503,21 +504,26 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
           <span className="text-xs uppercase tracking-wider text-slate-400">Revenue split</span>
           <span className={`text-xs ${percentSum === 100 ? "text-emerald-300" : "text-amber-300"}`}>sum {percentSum}%</span>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-3 sm:space-y-2">
           {rows.map((r, i) => (
-            <div key={i} className="grid grid-cols-[1fr_1.6fr_1fr_auto_auto] items-center gap-2">
+            <div
+              key={i}
+              className="grid grid-cols-2 items-center gap-2 rounded-lg border border-slate-800 p-2 sm:grid-cols-[1fr_1.6fr_1fr_auto_auto] sm:rounded-none sm:border-0 sm:p-0"
+            >
               <input value={r.role} onChange={(e) => setRow(i, { role: e.target.value })} placeholder="role"
-                className="rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200" />
+                className="rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-2 text-xs text-slate-200" />
               <input value={r.address} onChange={(e) => setRow(i, { address: e.target.value })} placeholder="payout address"
-                className="mono rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200" />
+                className="mono col-span-2 rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-2 text-xs text-slate-200 sm:col-span-1" />
               <select value={r.targetChain} onChange={(e) => setRow(i, { targetChain: e.target.value as Row["targetChain"] })}
-                className="rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200">
+                className="rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-2 text-xs text-slate-200">
                 {CHAINS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
-              <input value={r.percent} onChange={(e) => setRow(i, { percent: e.target.value })} placeholder="%"
-                className="w-16 rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200" />
-              <button onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))} disabled={rows.length === 1}
-                className="rounded-lg border border-slate-600 px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-700/40 disabled:opacity-40">×</button>
+              <div className="flex items-center gap-2 sm:contents">
+                <input value={r.percent} onChange={(e) => setRow(i, { percent: e.target.value })} placeholder="%"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-2 text-xs text-slate-200 sm:w-16" />
+                <button onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))} disabled={rows.length === 1}
+                  className="rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-400 hover:bg-slate-700/40 disabled:opacity-40">×</button>
+              </div>
             </div>
           ))}
         </div>
@@ -526,7 +532,7 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
       </div>
 
       <button onClick={publish} disabled={busy || percentSum !== 100 || !title}
-        className="mt-4 rounded-xl bg-indigo-500/90 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-50">
+        className="mt-4 w-full rounded-xl bg-indigo-500/90 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-50 sm:w-auto">
         {busy ? "Publishing…" : isApi ? "Register API" : "Publish piece"}
       </button>
 
@@ -577,17 +583,17 @@ export function AgentReader({ onRun }: { onRun?: () => void }) {
         An autonomous agent reads the catalog, decides what's worth unlocking within a $0.50 budget,
         and pays each creator per piece — splitting across chains. No human in the loop.
       </p>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <input
           value={interests}
           onChange={(e) => setInterests(e.target.value)}
           placeholder="interests, comma-separated"
-          className="min-w-[220px] flex-1 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200"
+          className="w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-200 sm:min-w-[220px] sm:flex-1"
         />
         <button
           onClick={run}
           disabled={running}
-          className="rounded-xl bg-indigo-500/90 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-60"
+          className="w-full rounded-xl bg-indigo-500/90 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-60 sm:w-auto"
         >
           {running ? "Agent reading…" : "Let the agent read & pay"}
         </button>
@@ -619,6 +625,50 @@ export function AgentReader({ onRun }: { onRun?: () => void }) {
   );
 }
 
+/** Receipt for a relayer-sponsored (walletless) unlock — real or simulated. */
+function SponsoredReceipt({ s }: { s: Sponsored }) {
+  const real = s.mode === "live-arc";
+  return (
+    <div className="mt-4 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] p-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm font-semibold text-emerald-300">
+          ✓ Unlocked · we covered the ${s.priceUSDC} for you
+        </span>
+        <Pill text={real ? "REAL USDC on Arc" : "simulated"} tone={real ? "emerald" : "slate"} />
+      </div>
+      <div className="space-y-1 text-xs text-slate-300">
+        {real && s.paymentTx ? (
+          <div>
+            relayer paid ·{" "}
+            <a className="mono text-indigo-300 underline decoration-dotted hover:text-indigo-200" target="_blank" rel="noreferrer" href={`${s.explorer}/tx/${s.paymentTx}`}>
+              payment tx ↗
+            </a>{" "}
+            · access saved to this device
+          </div>
+        ) : (
+          <div className="text-slate-400">Split fanned out across {s.payouts.length} creators · access saved to this device.</div>
+        )}
+        {s.payouts.map((p, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span>→ {p.role} · {p.targetChain} ({p.address.slice(0, 6)}…):</span>
+            {p.status === "paid" && p.txHash ? (
+              real ? (
+                <a className="mono text-indigo-300 underline decoration-dotted hover:text-indigo-200" target="_blank" rel="noreferrer" href={`${s.explorer}/tx/${p.txHash}`}>
+                  paid ${p.shareUSDC} ↗
+                </a>
+              ) : (
+                <span className="mono text-emerald-300">paid ${p.shareUSDC}</span>
+              )
+            ) : (
+              <span className="text-slate-500">skipped ({p.reason ?? "non-EVM"})</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** A single piece. Content → "Unlock"; API → "Call" (pay-per-call x402).
  *  When `live` is true a second button settles REAL USDC on Arc. */
 export function PieceCard({
@@ -646,9 +696,16 @@ export function PieceCard({
   const [payInfo, setPayInfo] = useState<PaymentInfo | null>(null);
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletPay, setWalletPay] = useState<WalletClaim | null>(null);
+  // Relayer-sponsored (walletless) unlock — the path a phone with no wallet uses.
+  const [sponsorBusy, setSponsorBusy] = useState(false);
+  const [sponsored, setSponsored] = useState<Sponsored | null>(null);
+  // Whether an injected wallet is actually present. Resolved on the client only,
+  // so the "pay with your own wallet" button never shows on a phone browser.
+  const [walletAvailable, setWalletAvailable] = useState(false);
 
   useEffect(() => {
     paymentInfoOnce().then(setPayInfo).catch(() => {});
+    setWalletAvailable(hasWallet());
   }, []);
 
   useEffect(() => {
@@ -717,6 +774,24 @@ export function PieceCard({
       setError(errorInfo(e).message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Walletless buy: the platform relayer covers the payment. This is the primary
+  // path on mobile (no injected wallet). Access is remembered against this
+  // browser's reader id, so the piece stays unlocked on return visits.
+  const sponsorRun = async () => {
+    setSponsorBusy(true);
+    setError(null);
+    try {
+      const result = await trpc.pieces.sponsoredUnlock.mutate({ pieceId: piece.id, reader: getReaderId() });
+      setSponsored(result);
+      if (result.content) setOwned(result.content);
+      onUnlocked?.();
+    } catch (e) {
+      setError(errorInfo(e).message);
+    } finally {
+      setSponsorBusy(false);
     }
   };
 
@@ -796,33 +871,47 @@ export function PieceCard({
             <Link href={detailHref} className="text-indigo-300 hover:text-indigo-200">Open &amp; read the full →</Link>
           ) : null}
         </div>
-      ) : (
+      ) : isApi ? (
         <button
           onClick={run}
           disabled={busy}
-          className={`mt-4 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-60 ${
-            isApi ? "bg-amber-400/90 text-slate-900 hover:bg-amber-300" : "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400"
-          }`}
+          className="mt-4 w-full rounded-xl bg-amber-400/90 px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-amber-300 disabled:opacity-60"
         >
-          {busy ? (isApi ? "Paying & calling…" : "Splitting across chains…") : isApi ? `Pay & call · $${piece.price}` : `Unlock for $${piece.price}`}
+          {busy ? "Paying & calling…" : `Pay & call · $${piece.price}`}
         </button>
+      ) : (
+        <>
+          {/* Primary, walletless buy: the relayer covers it. Works on any phone. */}
+          <button
+            onClick={sponsorRun}
+            disabled={sponsorBusy}
+            className="mt-4 w-full rounded-xl bg-emerald-500/90 px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-emerald-400 disabled:opacity-60"
+          >
+            {sponsorBusy ? "Splitting across chains…" : `Unlock for $${piece.price}`}
+          </button>
+          <p className="mt-1.5 text-center text-[11px] text-slate-500">
+            No wallet needed — we cover the payment. Stays unlocked on this device.
+          </p>
+
+          {/* Optional self-custody path — only when an injected wallet exists
+              (hidden on mobile browsers, where it wouldn't work). */}
+          {payInfo?.enabled && walletAvailable ? (
+            <button
+              onClick={walletRun}
+              disabled={walletBusy}
+              className="mt-2 w-full rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-3 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-400/20 disabled:opacity-60"
+            >
+              {walletBusy ? "Confirm in your wallet…" : `💳 Or pay from your own wallet · REAL USDC`}
+            </button>
+          ) : null}
+        </>
       )}
 
-      {!isApi && payInfo?.enabled && !owned ? (
-        <button
-          onClick={walletRun}
-          disabled={walletBusy}
-          className="mt-2 rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-2.5 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-400/20 disabled:opacity-60"
-        >
-          {walletBusy ? "Confirm in your wallet…" : `💳 Pay with your wallet · REAL USDC · $${piece.price}`}
-        </button>
-      ) : null}
-
-      {live ? (
+      {live && !owned ? (
         <button
           onClick={runLive}
           disabled={liveBusy}
-          className="mt-2 rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-400/20 disabled:opacity-60"
+          className="mt-2 w-full rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-400/20 disabled:opacity-60"
         >
           {liveBusy ? "Agent paying real USDC on Arc…" : `⚡ Agent pays REAL USDC on Arc · $${piece.price}`}
         </button>
@@ -855,6 +944,7 @@ export function PieceCard({
           </div>
         </div>
       ) : null}
+      {sponsored ? <SponsoredReceipt s={sponsored} /> : null}
       {unlock ? <FanOut unlock={unlock} /> : null}
       {/* Full content renders only on the dedicated reading page (no detailHref);
           on the catalog, cards stay compact and link out via the "Open & read"

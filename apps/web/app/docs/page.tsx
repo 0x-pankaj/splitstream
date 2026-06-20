@@ -98,8 +98,8 @@ const ARC_USDC = "0x3600000000000000000000000000000000000000";
 
 export default function DocsPage() {
   return (
-    <main className="mx-auto max-w-6xl px-6 py-8">
-      <header className="mb-8 flex items-center justify-between">
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-3 sm:mb-8">
         <Link href="/" className="flex items-center gap-2">
           <span className="text-lg font-semibold tracking-tight text-slate-100">SplitStream</span>
           <Pill text="docs" tone="slate" />

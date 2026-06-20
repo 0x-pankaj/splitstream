@@ -33,7 +33,7 @@ export default function PiecePage() {
   }, [refresh]);
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-10">
+    <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
       <header className="mb-6 flex items-center justify-between">
         <Link href="/" className="text-sm font-semibold tracking-tight text-slate-100">
           SplitStream

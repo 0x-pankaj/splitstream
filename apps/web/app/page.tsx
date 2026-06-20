@@ -38,8 +38,8 @@ export default function Storefront() {
   }, [refresh]);
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-8">
-      <header className="mb-8 flex items-center justify-between">
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <header className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xl font-semibold tracking-tight text-slate-100">SplitStream</span>
@@ -52,17 +52,17 @@ export default function Storefront() {
             contributor — each paid on their own chain, in under 500ms. No subscription, no signup.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Link href="/docs" className="rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700/40">
+        <nav className="flex shrink-0 items-center gap-2">
+          <Link href="/docs" className="flex-1 rounded-lg border border-slate-600 px-3 py-2 text-center text-xs text-slate-300 hover:bg-slate-700/40 sm:flex-none">
             Docs
           </Link>
-          <Link href="/publish" className="rounded-lg bg-indigo-500/90 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-400">
+          <Link href="/publish" className="flex-1 rounded-lg bg-indigo-500/90 px-3 py-2 text-center text-xs font-semibold text-white hover:bg-indigo-400 sm:flex-none">
             + Publish
           </Link>
-          <Link href="/dashboard" className="rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700/40">
+          <Link href="/dashboard" className="flex-1 rounded-lg border border-slate-600 px-3 py-2 text-center text-xs text-slate-300 hover:bg-slate-700/40 sm:flex-none">
             Console →
           </Link>
-        </div>
+        </nav>
       </header>
 
       <TractionHero stats={stats} />

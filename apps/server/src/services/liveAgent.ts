@@ -26,7 +26,7 @@ import { config } from "../config.js";
 import { publicClient, relayerAccount, walletClient as relayerWallet } from "../chain/arc.js";
 import { erc20Abi } from "../chain/abis.js";
 import { verifyArcUsdcPayment, payContributorsOnArc, type OnArcPayout } from "./x402Settle.js";
-import { proxyUpstream, type UpstreamResult } from "./splitEngine.js";
+import { proxyUpstream, payForPiece, type UpstreamResult } from "./splitEngine.js";
 import type { Store } from "../db/store.js";
 
 /** Top up the agent when its USDC balance drops below this (6dp). */
@@ -68,6 +68,8 @@ export interface LiveAgentResult {
   explorer: string;
   pieceUnlocks: number;
   pieceTotalPaidUSDC: string;
+  /** Gated content, returned only when an entitled `reader` sponsored the unlock. */
+  content?: string | null;
 }
 
 /** True when the in-app live agent can actually settle on Arc. */
@@ -78,8 +80,17 @@ export function liveAgentReady(): boolean {
 /**
  * Pay for a piece on-chain as the autonomous demo agent. Returns the real Arc
  * tx hashes for the payment and each contributor payout.
+ *
+ * When `opts.reader` is supplied (a stable per-browser id), the relayer is
+ * sponsoring a real human's unlock: we grant that reader a durable entitlement
+ * and hand back the gated content, so the human keeps access on return visits
+ * without ever needing a wallet. The on-chain money still moves for real.
  */
-export async function payLiveForPiece(store: Store, piece: Piece): Promise<LiveAgentResult> {
+export async function payLiveForPiece(
+  store: Store,
+  piece: Piece,
+  opts: { reader?: string } = {},
+): Promise<LiveAgentResult> {
   if (!config.liveX402) throw new Error("LIVE_X402 is not enabled");
   if (!relayerAccount || !relayerWallet) throw new Error("relayer wallet not configured");
   const { account: agent, wallet } = agentWallet();
@@ -130,6 +141,11 @@ export async function payLiveForPiece(store: Store, piece: Piece): Promise<LiveA
     at: new Date().toISOString(),
   });
   const upstream = piece.kind === "api" ? await proxyUpstream(piece) : undefined;
+
+  // When a human sponsored this unlock, key the entitlement to their browser id
+  // so they keep access on return visits (the on-chain payer is the relayer/agent,
+  // but the *reader* is who we remember).
+  if (opts.reader) store.grantEntitlement(piece.id, opts.reader);
   const updated = store.getPiece(piece.id)!;
 
   return {
@@ -143,5 +159,102 @@ export async function payLiveForPiece(store: Store, piece: Piece): Promise<LiveA
     explorer: ARC_TESTNET.explorer,
     pieceUnlocks: updated.unlocks,
     pieceTotalPaidUSDC: formatUsdc6(updated.totalPaid6),
+    content: opts.reader && piece.kind !== "api" ? piece.content ?? null : null,
+  };
+}
+
+/** A contributor leg of a sponsored unlock, normalized across live & simulated. */
+export interface SponsoredPayout {
+  role: string;
+  address: string;
+  targetChain: string;
+  shareUSDC: string;
+  /** Real Arc tx hash (live) or simulated settlement hash; null if skipped. */
+  txHash: string | null;
+  status: "paid" | "skipped";
+  reason?: string;
+}
+
+/**
+ * The receipt for a relayer-SPONSORED unlock — the walletless buy path. The
+ * platform relayer covers the payment so a reader with no wallet (e.g. a phone
+ * browser) can still buy a piece; access is remembered against their browser id.
+ */
+export interface SponsoredUnlockResult {
+  /** "live-arc" = real USDC moved on Arc; "simulated" = mirror-mode settlement. */
+  mode: "live-arc" | "simulated";
+  pieceId: string;
+  reader: string;
+  priceUSDC: string;
+  /** Real Arc payment tx hash when live; null in simulated mode. */
+  paymentTx: string | null;
+  explorer: string;
+  payouts: SponsoredPayout[];
+  /** The gated content the reader just unlocked (null for "api" pieces). */
+  content: string | null;
+  pieceUnlocks: number;
+  pieceTotalPaidUSDC: string;
+}
+
+/**
+ * Unlock a piece on the reader's behalf, paid for by the platform relayer.
+ *
+ * This is the no-wallet buy path the mobile UI uses: when the live relayer is
+ * funded (`liveAgentReady`) the money moves for real on Arc; otherwise it falls
+ * back to mirror-mode simulated settlement so the demo always works with zero
+ * keys. Either way the reader gets a durable, remembered entitlement keyed to
+ * their browser id and the gated content is returned.
+ */
+export async function sponsoredUnlock(
+  store: Store,
+  piece: Piece,
+  reader: string,
+): Promise<SponsoredUnlockResult> {
+  if (liveAgentReady()) {
+    const live = await payLiveForPiece(store, piece, { reader });
+    return {
+      mode: "live-arc",
+      pieceId: piece.id,
+      reader,
+      priceUSDC: live.priceUSDC,
+      paymentTx: live.paymentTx,
+      explorer: live.explorer,
+      payouts: live.payouts.map((p, i) => ({
+        role: p.role,
+        address: p.address,
+        targetChain: piece.contributors[i]?.targetChain ?? "arc",
+        shareUSDC: formatUsdc6(BigInt(p.share6)),
+        txHash: p.txHash,
+        status: p.status,
+        reason: p.reason,
+      })),
+      content: live.content ?? null,
+      pieceUnlocks: live.pieceUnlocks,
+      pieceTotalPaidUSDC: live.pieceTotalPaidUSDC,
+    };
+  }
+
+  // Mirror-mode fallback: simulated settlement, same remembered entitlement.
+  const sim = await payForPiece(store, piece, { payer: reader });
+  return {
+    mode: "simulated",
+    pieceId: piece.id,
+    reader,
+    priceUSDC: formatUsdc6(BigInt(sim.price6)),
+    paymentTx: null,
+    explorer: ARC_TESTNET.explorer,
+    payouts: sim.contributors.map((c) => ({
+      role: c.role,
+      address: c.recipientAddress,
+      targetChain: c.targetChain,
+      shareUSDC: formatUsdc6(BigInt(c.share6)),
+      txHash: c.settlement.destinationTxHash,
+      status: "paid",
+    })),
+    content: sim.content,
+    pieceUnlocks: sim.pieceUnlocks,
+    pieceTotalPaidUSDC: sim.pieceTotalPaid6
+      ? formatUsdc6(BigInt(sim.pieceTotalPaid6))
+      : "0",
   };
 }

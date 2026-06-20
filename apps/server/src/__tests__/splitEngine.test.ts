@@ -244,3 +244,37 @@ describe("authenticated API piece — credential injection without leak", () => 
     }
   });
 });
+
+describe("sponsoredUnlock (walletless / relayer-sponsored buy)", () => {
+  it("simulated fallback grants a remembered entitlement and reveals content", async () => {
+    const { sponsoredUnlock } = await import("../services/liveAgent.js");
+    const store = freshStore();
+    const piece = store.getPiece(DEMO_PIECE_ID)!;
+    const reader = "reader-phone-123";
+
+    // No LIVE_X402 / relayer in tests → falls back to simulated settlement.
+    const result = await sponsoredUnlock(store, piece, reader);
+
+    expect(result.mode).toBe("simulated");
+    expect(result.paymentTx).toBeNull();
+    expect(result.payouts).toHaveLength(piece.contributors.length);
+    // The reader is remembered: access persists without paying again.
+    expect(store.hasEntitlement(DEMO_PIECE_ID, reader)).toBe(true);
+    // A different reader is NOT entitled.
+    expect(store.hasEntitlement(DEMO_PIECE_ID, "someone-else")).toBe(false);
+    // The gated content is delivered to the buyer.
+    expect(result.content).toBe(piece.content ?? null);
+    // The unlock counts toward traction.
+    expect(result.pieceUnlocks).toBeGreaterThanOrEqual(1);
+  });
+
+  it("rejects sponsoring an API piece (those are pay-per-call)", async () => {
+    const { sponsoredUnlock } = await import("../services/liveAgent.js");
+    const store = freshStore();
+    const api = store.getPiece(DEMO_API_ID)!;
+    // The router guards this, but the engine should also never grant content access
+    // to an api piece via this path — content is null for api pieces.
+    const result = await sponsoredUnlock(store, api, "reader-x");
+    expect(result.content).toBeNull();
+  });
+});

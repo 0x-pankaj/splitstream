@@ -227,7 +227,7 @@ export default function Dashboard() {
   const totalInvalid = rows.length - totalValid;
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-8">
+    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
       <Header connected={connected} onchain={overview?.onchainEnabled ?? false} />
 
       <AccountBar me={me} keyLabel={keyLabel} onSwitch={switchKey} custom={isCustomKey()} />
@@ -278,18 +278,18 @@ export default function Dashboard() {
                 const validAddr = isAddressValidForChain(r.recipientAddress, r.targetChain);
                 const status = !validAddr ? "invalid" : isVetted(r) ? "vetted" : "unvetted";
                 return (
-                  <div key={i} className="grid grid-cols-12 items-center gap-2">
-                    <div className="col-span-5 flex items-center gap-2">
+                  <div key={i} className="grid grid-cols-2 items-center gap-2 rounded-lg border border-slate-800 p-2 sm:grid-cols-12 sm:rounded-none sm:border-0 sm:p-0">
+                    <div className="col-span-2 flex items-center gap-2 sm:col-span-5">
                       <RowStatusDot status={status} />
                       <input
-                        className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs mono"
+                        className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900/60 px-2 py-2 text-xs mono sm:py-1.5"
                         placeholder="recipient address"
                         value={r.recipientAddress}
                         onChange={(e) => updateRow(i, { recipientAddress: e.target.value })}
                       />
                     </div>
                     <select
-                      className="col-span-2 rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs"
+                      className="col-span-1 rounded-md border border-slate-700 bg-slate-900/60 px-2 py-2 text-xs sm:col-span-2 sm:py-1.5"
                       value={r.targetChain}
                       onChange={(e) => updateRow(i, { targetChain: e.target.value as Row["targetChain"] })}
                     >
@@ -298,19 +298,19 @@ export default function Dashboard() {
                       ))}
                     </select>
                     <input
-                      className={`col-span-2 rounded-md border bg-slate-900/60 px-2 py-1.5 text-xs text-right ${isAmountValid(r.amountUSDC) ? "border-slate-700" : "border-red-500/50"}`}
+                      className={`col-span-1 rounded-md border bg-slate-900/60 px-2 py-2 text-xs text-right sm:col-span-2 sm:py-1.5 ${isAmountValid(r.amountUSDC) ? "border-slate-700" : "border-red-500/50"}`}
                       value={r.amountUSDC}
                       onChange={(e) => updateRow(i, { amountUSDC: e.target.value })}
                     />
                     <select
-                      className="col-span-2 rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs"
+                      className="col-span-1 rounded-md border border-slate-700 bg-slate-900/60 px-2 py-2 text-xs sm:col-span-2 sm:py-1.5"
                       value={r.currencyCode}
                       onChange={(e) => updateRow(i, { currencyCode: e.target.value as Row["currencyCode"] })}
                     >
                       <option value="USD">USD</option>
                       <option value="EUR">EUR→EURC</option>
                     </select>
-                    <button onClick={() => removeRow(i)} className="col-span-1 text-slate-500 hover:text-red-400">✕</button>
+                    <button onClick={() => removeRow(i)} className="col-span-1 text-right text-slate-500 hover:text-red-400 sm:text-center">✕</button>
                   </div>
                 );
               })}
