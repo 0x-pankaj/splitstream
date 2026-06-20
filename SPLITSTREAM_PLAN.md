@@ -58,6 +58,13 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
 - [ ] Embedded **TipJar** widget (one-line embed → instant tip to a creator).
 - [ ] Public read endpoints (no api key) for browsing + paying, so strangers can
       generate volume from a shared link.
+- [ ] **FUTURE — per-creator earnings leaderboard.** "These addresses earned $X
+      each," ranked, built off the on-chain settlement ledger
+      (`store.onchainSettlements` → sum `payouts[].share6` per contributor address;
+      also a simulated/all-flows variant from piece contributor splits). Renders
+      the RFB's exact metric phrase "creators earning"; photographs well in the
+      demo. New tRPC `traction.creatorLeaderboard` + a panel under the hero.
+      Optional: link each address to its Arc explorer page; show chain badges.
 
 ### Phase 3 — Agentic layer (the 30%)
 - [ ] **Reading-agent**: an Opus-driven loop that "reads" a feed of pieces and
