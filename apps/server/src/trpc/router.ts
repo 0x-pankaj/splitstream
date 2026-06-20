@@ -393,7 +393,7 @@ export const appRouter = router({
      * Returns real Arc tx hashes. Only available when LIVE_X402 + funded relayer.
      */
     payLive: publicProcedure
-      .input(z.object({ pieceId: z.string().min(1) }))
+      .input(z.object({ pieceId: z.string().min(1), reader: z.string().min(1).max(128).optional() }))
       .mutation(async ({ ctx, input }) => {
         try {
           if (!liveAgentReady()) {
@@ -401,7 +401,9 @@ export const appRouter = router({
           }
           const piece = ctx.store.getPiece(input.pieceId);
           if (!piece) throw new Error(`No such piece: ${input.pieceId}`);
-          return await payLiveForPiece(ctx.store, piece);
+          // Pass the clicker's reader id so the agent's REAL payment also grants
+          // them durable access + returns the content — one click, no second pay.
+          return await payLiveForPiece(ctx.store, piece, { reader: input.reader });
         } catch (err) {
           throw toTRPCError(err);
         }
@@ -532,6 +534,8 @@ export const appRouter = router({
         totalCreatorPaid: formatUsdc6(totalPaid6),
         pieceCount: pieces.length,
         contributorCount: contributors.size,
+        /** Distinct buyers across all pay flows — demand for creators. */
+        uniqueBuyers: ctx.store.buyers.size,
         chainCount: chains.size,
         chains: [...chains],
         topPieces,

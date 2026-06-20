@@ -244,6 +244,8 @@ export async function payForPiece(
   //    access so a return visit / refresh re-reads for free (pay once, keep it).
   store.recordUnlock(piece.id, piece.price6);
   if (opts.payer) store.grantEntitlement(piece.id, opts.payer);
+  // Count the distinct buyer (reader id or agent) for the traction "buyers" number.
+  store.recordBuyer(opts.payer ?? opts.agentId);
   const updated = store.getPiece(piece.id)!;
 
   // 6) Assemble the reader-facing receipt, aligning settlements to contributors.

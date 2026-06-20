@@ -268,6 +268,20 @@ describe("sponsoredUnlock (walletless / relayer-sponsored buy)", () => {
     expect(result.pieceUnlocks).toBeGreaterThanOrEqual(1);
   });
 
+  it("counts distinct buyers (dedup), powering the traction buyers number", async () => {
+    const store = freshStore();
+    const piece = store.getPiece(DEMO_PIECE_ID)!;
+
+    await payForPiece(store, piece, { payer: "alice" }, 1_000_000);
+    await payForPiece(store, piece, { payer: "Alice" }, 1_000_001); // same buyer, different case
+    await payForPiece(store, piece, { payer: "bob" }, 1_000_002);
+
+    // Two distinct buyers, lowercased + deduped.
+    expect(store.buyers.size).toBe(2);
+    expect(store.buyers.has("alice")).toBe(true);
+    expect(store.buyers.has("bob")).toBe(true);
+  });
+
   it("rejects sponsoring an API piece (those are pay-per-call)", async () => {
     const { sponsoredUnlock } = await import("../services/liveAgent.js");
     const store = freshStore();

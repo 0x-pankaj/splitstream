@@ -65,6 +65,7 @@ export function TractionHero({ stats }: { stats: Traction | null }) {
   const cells = [
     { label: "Creators paid", value: stats ? stats.totalCreatorPaid : "—", accent: "#34d399", prefix: "$" },
     { label: "Unlocks", value: stats ? String(stats.totalUnlocks) : "—", accent: "#a5b4fc", prefix: "" },
+    { label: "Buyers", value: stats ? String(stats.uniqueBuyers) : "—", accent: "#f472b6", prefix: "" },
     { label: "Contributors", value: stats ? String(stats.contributorCount) : "—", accent: "#fbbf24", prefix: "" },
     { label: "Chains", value: stats ? String(stats.chainCount) : "—", accent: "#22d3ee", prefix: "" },
   ];
@@ -74,7 +75,7 @@ export function TractionHero({ stats }: { stats: Traction | null }) {
         <div className="text-[11px] uppercase tracking-wider text-slate-400">Live traction · paid out to creators</div>
         {stats ? <Pill text={stats.onchainMode === "live" ? "LIVE Arc" : "simulated"} tone={stats.onchainMode === "live" ? "emerald" : "slate"} /> : null}
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {cells.map((c) => (
           <div key={c.label}>
             <div className="text-2xl font-semibold tabular-nums sm:text-3xl" style={{ color: c.accent }}>
@@ -878,8 +879,14 @@ export function PieceCard({
     setLiveBusy(true);
     setError(null);
     try {
-      const result = await trpc.pieces.payLive.mutate({ pieceId: piece.id });
+      // Pass our reader id so the agent's real payment ALSO unlocks it for us —
+      // no separate "Unlock" click and no double payment.
+      const result = await trpc.pieces.payLive.mutate({ pieceId: piece.id, reader: getReaderId() });
       setLivePay(result);
+      if (result.content) {
+        setOwned(result.content);
+        cacheOwnedContent(piece.id, result.content);
+      }
       onUnlocked?.();
     } catch (e) {
       setError(errorInfo(e).message);

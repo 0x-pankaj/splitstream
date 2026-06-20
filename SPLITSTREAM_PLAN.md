@@ -108,7 +108,25 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
 
 ## Build State (UPDATE THIS LAST, EVERY SESSION)
 
-**Last updated:** session 4 (mobile + walletless buy + wallet-identity restore).
+**Last updated:** session 4 (mobile + walletless buy + restore + buyers/agent-fix).
+
+**Unique-buyers counter + agent-button fix (session 4):**
+- **Buyers traction number.** New `store.buyers` Set + `recordBuyer()` (lowercased,
+  deduped), persisted in the snapshot, recorded at every pay site (`payForPiece`
+  → payer/agent, `payLiveForPiece` → reader else agent, `claimWalletPayment` →
+  wallet). `traction.stats` exposes `uniqueBuyers`; `TractionHero` shows a 5th
+  "Buyers" cell (grid → `grid-cols-2 sm:grid-cols-3 lg:grid-cols-5`). NOTE:
+  `contributorCount` is unique CREATORS in the catalog, not buyers — buying never
+  moves it (that confused the user); `uniqueBuyers` is the demand metric.
+- **Agent button now unlocks for the clicker.** `pieces.payLive` accepts an
+  optional `reader`; the web passes `getReaderId()`, so the ⚡ "Agent pays REAL
+  USDC" click grants the human a durable entitlement + returns content (revealed
+  + cached) — no separate "Unlock" click, no double payment. Once owned, both buy
+  buttons hide.
+- Tests **63/63** (+1 buyers dedup). Typecheck + web build clean. Deploy: push
+  (Vercel) + `railway up` (API).
+
+**Wallet = portable identity · "restore purchases" (session 4):**
 
 **Wallet = portable identity · "restore purchases" (session 4):**
 - **Problem closed (content leak).** Entitlements keyed to a wallet address were

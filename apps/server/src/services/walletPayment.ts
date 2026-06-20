@@ -80,6 +80,7 @@ export async function claimWalletPayment(
   // Burn the tx hash (anti-replay) and grant access keyed to the real payer.
   store.x402SettledTxHashes.add(key);
   store.grantEntitlement(piece.id, verified.from);
+  store.recordBuyer(verified.from);
   whitelistContributors(store, piece);
 
   // Fan the verified payment out to every contributor in real USDC on Arc.

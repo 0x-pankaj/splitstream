@@ -146,6 +146,8 @@ export async function payLiveForPiece(
   // so they keep access on return visits (the on-chain payer is the relayer/agent,
   // but the *reader* is who we remember).
   if (opts.reader) store.grantEntitlement(piece.id, opts.reader);
+  // The buyer is the human reader when sponsored, else the autonomous agent.
+  store.recordBuyer(opts.reader ?? agent.address);
   const updated = store.getPiece(piece.id)!;
 
   return {

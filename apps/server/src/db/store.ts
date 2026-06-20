@@ -102,6 +102,15 @@ export class Store {
   entitlements = new Set<string>();
 
   /**
+   * Distinct buyers — every reader/agent that has paid for at least one unlock or
+   * call, across all flows (sponsored, own-wallet, soft, agent, x402). Powers the
+   * "buyers" traction number (demand for creators), counted unique. A buyer is a
+   * browser reader id, a wallet address, or an agent id — lowercased so the same
+   * wallet across flows counts once.
+   */
+  buyers = new Set<string>();
+
+  /**
    * REAL on-chain settlements on Arc (the live-agent button + live x402 path):
    * the verifiable, "nothing simulated" traction we headline for judges. Each
    * entry carries the agent's payment tx and every contributor payout tx, so the
@@ -351,6 +360,12 @@ export class Store {
   grantEntitlement(pieceId: string, reader: string): void {
     if (!reader.trim()) return;
     this.entitlements.add(this.entitlementKey(pieceId, reader));
+  }
+
+  /** Record a distinct buyer (reader id, wallet, or agent id) for the traction count. */
+  recordBuyer(buyer: string | null | undefined): void {
+    const id = buyer?.trim().toLowerCase();
+    if (id) this.buyers.add(id);
   }
 
   /** True when this reader has already paid to unlock this piece. */

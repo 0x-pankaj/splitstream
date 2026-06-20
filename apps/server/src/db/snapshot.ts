@@ -41,6 +41,8 @@ export interface Snapshot {
   /** SplitStream pieces (with accumulated traction) and reader entitlements. */
   pieces?: Piece[];
   entitlements?: string[];
+  /** Distinct buyers across all pay flows (unique-buyers traction count). */
+  buyers?: string[];
   /** Real on-chain settlements (verifiable Arc traction). */
   onchainSettlements?: OnchainSettlement[];
 }
@@ -64,6 +66,7 @@ export function buildSnapshotJson(store: Store): string {
     ),
     pieces: [...store.pieces.values()],
     entitlements: [...store.entitlements],
+    buyers: [...store.buyers],
     onchainSettlements: store.onchainSettlements,
   };
   return JSON.stringify(snap, replacer);
@@ -81,5 +84,6 @@ export function restoreFromJson(store: Store, json: string): void {
   for (const [tid, recs] of snap.recipients ?? []) for (const r of recs) store.addRecipient(tid, r);
   for (const p of snap.pieces ?? []) store.pieces.set(p.id, p);
   for (const e of snap.entitlements ?? []) store.entitlements.add(e);
+  for (const b of snap.buyers ?? []) store.buyers.add(b);
   if (snap.onchainSettlements) store.onchainSettlements = snap.onchainSettlements;
 }
