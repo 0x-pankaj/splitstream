@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { trpc, getApiKey, setApiKey, clearApiKey, isCustomKey, DEMO_API_KEY, errorInfo, type ErrorInfo } from "../../lib/trpc";
 import { Stat, PathBadge, ChainBadge, ModeBadge, TxLink, Section, CopyField, Pill } from "../../components/ui";
 import {
@@ -503,6 +504,11 @@ function Header({ connected, onchain }: { connected: boolean; onchain: boolean }
   return (
     <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
+        <div className="mb-1 flex items-center gap-3 text-xs">
+          <Link href="/" className="font-semibold tracking-tight text-slate-300 hover:text-white">← SplitStream storefront</Link>
+          <Link href="/docs" className="text-slate-400 hover:text-slate-200">Docs</Link>
+          <Link href="/publish" className="text-slate-400 hover:text-slate-200">Publish</Link>
+        </div>
         <h1 className="text-2xl font-bold tracking-tight">
           Arcane <span className="text-indigo-400">Treasury</span>
         </h1>

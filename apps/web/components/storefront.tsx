@@ -286,6 +286,7 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
   const [preview, setPreview] = useState("");
   const [content, setContent] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [rows, setRows] = useState<Row[]>([
     { role: "creator", address: "", targetChain: "base", percent: "100" },
   ]);
@@ -315,6 +316,7 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
       const data = (await res.json()) as { ok?: boolean; url?: string; message?: string };
       if (!res.ok || !data.url) throw new Error(data.message ?? `upload failed (${res.status})`);
       setContent(data.url);
+      setShowPreview(true); // show the uploaded media immediately
     } catch (e) {
       setError(errorInfo(e).message);
     } finally {
@@ -416,28 +418,58 @@ export function PublishForm({ onPublished }: { onPublished?: (id: string) => voi
             <input value={preview} onChange={(e) => setPreview(e.target.value)} placeholder="A one-line hook readers see before paying…"
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200" />
           </label>
-          <label className="block text-xs text-slate-400">
-            Content (revealed only after payment) — markdown/text, or a URL for a photo/audio file
-            <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={4}
-              placeholder={"# My article\n\nThe full body readers unlock for the price above…\n\n(or upload a photo/song below, or paste an https:// URL)"}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200" />
-          </label>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-            <label className="cursor-pointer rounded-lg border border-slate-600 px-3 py-1.5 hover:bg-slate-700/40">
-              {uploading ? "Uploading…" : "⬆ Upload photo / song"}
-              <input type="file" accept="image/*,audio/*" className="hidden" disabled={uploading}
-                onChange={(e) => onFile(e.target.files?.[0])} />
-            </label>
-            <span className="text-slate-500">file is stored on R2; its URL becomes the gated content</span>
-          </div>
-          {content && /^https?:\/\//i.test(content) ? (
-            /\.(png|jpe?g|gif|webp|avif|svg)(\?|$)/i.test(content) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={content} alt="upload preview" className="max-h-40 rounded-lg border border-slate-700 object-contain" />
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-xs text-slate-400">Content — what the reader gets after paying</span>
+              <div className="flex items-center gap-1 rounded-lg border border-slate-700 p-0.5 text-[11px]">
+                <button type="button" onClick={() => setShowPreview(false)}
+                  className={`rounded px-2 py-1 ${!showPreview ? "bg-slate-700 text-slate-100" : "text-slate-400 hover:text-slate-200"}`}>Write</button>
+                <button type="button" onClick={() => setShowPreview(true)}
+                  className={`rounded px-2 py-1 ${showPreview ? "bg-slate-700 text-slate-100" : "text-slate-400 hover:text-slate-200"}`}>Preview</button>
+              </div>
+            </div>
+
+            {showPreview ? (
+              <div className="min-h-[260px] rounded-lg border border-slate-700 bg-slate-950/40 p-4">
+                {content.trim() ? (
+                  isUrl(content) ? (
+                    /\.(png|jpe?g|gif|webp|avif|svg)(\?|$)/i.test(content) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={content} alt="preview" className="max-h-80 w-full rounded-lg object-contain" />
+                    ) : (
+                      <audio controls src={content} className="w-full" />
+                    )
+                  ) : (
+                    <Markdown text={content} />
+                  )
+                ) : (
+                  <span className="text-sm text-slate-500">Nothing to preview yet — write some content (or upload a file).</span>
+                )}
+              </div>
             ) : (
-              <audio controls src={content} className="w-full" />
-            )
-          ) : null}
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={12}
+                placeholder={"# My article title\n\nWrite the **full** piece here. Markdown works:\n\n## A section\n\n- a point\n- another point\n\nReaders see this only after they pay. Or upload a photo/song below and its URL becomes the content."}
+                className="mono w-full resize-y rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2.5 text-sm leading-6 text-slate-200 focus:border-indigo-500/60 focus:outline-none"
+              />
+            )}
+
+            <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+              <span>Markdown: <code className="mono">#</code> heading · <code className="mono">**bold**</code> · <code className="mono">*italic*</code> · <code className="mono">- list</code></span>
+              <span>{content.length} chars</span>
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+              <label className="cursor-pointer rounded-lg border border-slate-600 px-3 py-1.5 hover:bg-slate-700/40">
+                {uploading ? "Uploading…" : "⬆ Upload photo / song"}
+                <input type="file" accept="image/*,audio/*" className="hidden" disabled={uploading}
+                  onChange={(e) => onFile(e.target.files?.[0])} />
+              </label>
+              <span className="text-slate-500">stored on R2 — its URL becomes the gated content</span>
+            </div>
+          </div>
         </div>
       ) : null}
 
