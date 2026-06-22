@@ -21,7 +21,7 @@
 
 import { formatUsdc6, parseUsdc6, type Piece } from "@arcane/shared";
 import type { Store } from "../db/store.js";
-import { payForPiece, type PieceUnlockResult } from "./splitEngine.js";
+import { sponsoredUnlock, type SponsoredUnlockResult } from "./liveAgent.js";
 
 export interface ReadingAgentConfig {
   /** Optional scoped agent wallet — when set, its on-chain spend caps apply. */
@@ -54,7 +54,8 @@ export interface ReadingSessionResult {
   spentUSDC: string;
   budgetUSDC: string;
   decisions: ReadingDecision[];
-  unlocks: PieceUnlockResult[];
+  /** Each unlock the agent paid for — REAL on Arc in production. */
+  unlocks: SponsoredUnlockResult[];
 }
 
 /** Lowercase keyword bag describing a piece, for interest matching. */
@@ -202,7 +203,8 @@ export async function runReadingAgent(
   let spent6 = 0n;
   let unlocked = 0;
   let skipped = 0;
-  const unlocks: PieceUnlockResult[] = [];
+  const unlocks: SponsoredUnlockResult[] = [];
+  const reader = `reading-agent${config.agentId ? `:${config.agentId}` : ""}`;
 
   for (const decision of decisions) {
     const piece = store.getPiece(decision.pieceId);
@@ -212,12 +214,10 @@ export async function runReadingAgent(
     const hasRoom = unlocked < config.maxUnlocks;
 
     if (decision.unlock && affordable && hasRoom) {
-      const result = await payForPiece(
-        store,
-        piece,
-        { payer: `reading-agent${config.agentId ? `:${config.agentId}` : ""}`, agentId: config.agentId },
-        now + unlocked,
-      );
+      // Settle for REAL on Arc in production (sponsoredUnlock pays via the relayer
+      // when live, simulated only as the zero-key dev fallback) — so the agent's
+      // reading session produces real, verifiable creator payouts.
+      const result = await sponsoredUnlock(store, piece, reader);
       unlocks.push(result);
       spent6 += piece.price6;
       unlocked += 1;

@@ -147,7 +147,10 @@ export async function payLiveForPiece(
   // but the *reader* is who we remember).
   if (opts.reader) store.grantEntitlement(piece.id, opts.reader);
   // The buyer is the human reader when sponsored, else the autonomous agent.
+  // This unlock settled REAL USDC on Arc, so it counts as a real buyer (the
+  // numerator of reader-to-payer conversion), never a simulated one.
   store.recordBuyer(opts.reader ?? agent.address);
+  store.recordRealBuyer(opts.reader ?? agent.address);
   const updated = store.getPiece(piece.id)!;
 
   return {

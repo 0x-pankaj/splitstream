@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { trpc, errorInfo } from "../../../lib/trpc";
+import { trpc, errorInfo, getReaderId } from "../../../lib/trpc";
 import { PieceCard, RestorePurchases, type Piece } from "../../../components/storefront";
 
 export default function PiecePage() {
@@ -30,6 +30,7 @@ export default function PiecePage() {
 
   useEffect(() => {
     refresh();
+    trpc.traction.visit.mutate({ visitorId: getReaderId() }).catch(() => {});
   }, [refresh]);
 
   return (

@@ -34,6 +34,7 @@ import { payLiveForPiece, liveAgentReady, sponsoredUnlock } from "../services/li
 import { walletPaymentInfo, claimWalletPayment } from "../services/walletPayment.js";
 import { restoreEntitlements } from "../services/walletRestore.js";
 import { issueRecoveryCode, redeemRecoveryCode, readerLibrary } from "../services/recovery.js";
+import { computeRealTractionMetrics } from "../services/tractionMetrics.js";
 import { CreatePieceSchema, CallPieceSchema, parseUsdc6, ARC_TESTNET } from "@arcane/shared";
 
 /** Arc L1 native USDC system contract (6dp ERC-20 view). */
@@ -530,6 +531,14 @@ export const appRouter = router({
    * Public so it can headline the storefront and the demo.
    */
   traction: router({
+    /** Record a unique visitor (the denominator of reader-to-payer conversion). */
+    visit: publicProcedure
+      .input(z.object({ visitorId: z.string().min(1).max(128) }))
+      .mutation(({ ctx, input }) => {
+        ctx.store.recordVisitor(input.visitorId);
+        return { ok: true };
+      }),
+
     stats: publicProcedure.query(({ ctx }) => {
       const pieces = ctx.store.listPieces();
       let totalUnlocks = 0;
@@ -557,10 +566,13 @@ export const appRouter = router({
       // Verifiable, real-on-Arc traction (the "nothing simulated" headline).
       const onchain = ctx.store.listOnchainSettlements(8);
       const onchainPaid6 = ctx.store.onchainPaidTotal6();
-      const onchainPayoutCount = ctx.store.onchainSettlements.reduce(
-        (n, s) => n + s.payouts.length,
-        0,
-      );
+      const settlements = ctx.store.onchainSettlements;
+      const onchainPayoutCount = settlements.reduce((n, s) => n + s.payouts.length, 0);
+
+      // RFB-06 metrics — real-only (creators earning, avg/piece, conversion).
+      const { topCreators, avgPaymentPerPiece, uniqueVisitors, realBuyerCount, readerToPayerConversion } =
+        computeRealTractionMetrics(ctx.store);
+
       return {
         totalUnlocks,
         totalCreatorPaid: formatUsdc6(totalPaid6),
@@ -579,8 +591,15 @@ export const appRouter = router({
         /** Real USDC actually paid to creators on Arc (verifiable on-chain). */
         onchainCreatorPaid: formatUsdc6(onchainPaid6),
         /** Count of real on-chain settlement events and individual payout txs. */
-        onchainSettlementCount: ctx.store.onchainSettlements.length,
+        onchainSettlementCount: settlements.length,
         onchainPayoutCount,
+        /** RFB-06 metrics, sourced ONLY from real on-chain settlements. */
+        avgPaymentPerPiece,
+        uniqueVisitors,
+        realBuyerCount,
+        readerToPayerConversion,
+        /** "Creators earning" leaderboard — real USDC per contributor address. */
+        topCreators,
         /** Most recent real settlements, with payment + payout tx hashes. */
         recentOnchain: onchain.map((s) => ({
           pieceId: s.pieceId,

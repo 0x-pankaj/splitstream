@@ -40,8 +40,9 @@ describe("reading agent (heuristic)", () => {
 
     expect(result.mode).toBe("heuristic"); // no OPENROUTER_API_KEY in tests
     expect(result.unlocked).toBeGreaterThanOrEqual(1);
-    // Each unlock fanned out across the piece's contributors.
-    expect(result.unlocks[0]!.contributors.length).toBe(3);
+    // Each unlock fanned out across the piece's contributors (simulated dev
+    // fallback in tests; real on Arc in production).
+    expect(result.unlocks[0]!.payouts.length).toBe(3);
     // Spend stayed within budget.
     expect(Number(result.spentUSDC)).toBeLessThanOrEqual(0.5);
   });

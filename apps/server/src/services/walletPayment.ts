@@ -81,6 +81,7 @@ export async function claimWalletPayment(
   store.x402SettledTxHashes.add(key);
   store.grantEntitlement(piece.id, verified.from);
   store.recordBuyer(verified.from);
+  store.recordRealBuyer(verified.from); // real USDC verified on Arc
   whitelistContributors(store, piece);
 
   // Fan the verified payment out to every contributor in real USDC on Arc.

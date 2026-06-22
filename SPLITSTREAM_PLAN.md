@@ -115,7 +115,40 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
 
 ## Build State (UPDATE THIS LAST, EVERY SESSION)
 
-**Last updated:** session 4 (… + My Purchases library + recovery codes).
+**Last updated:** session 4 (… + RFB-06 metrics on screen, real-only).
+
+**RFB-06 metrics on screen, sourced 100% from REAL Arc settlements (session 4):**
+- **Why:** RFB-06's judged traction metric is "Creators earning · total creator
+  payouts · average payment per piece · reader-to-payer conversion," and traction
+  is graded on genuine real-USDC usage. User directive: everything real, nothing
+  simulated. So all displayed metrics now derive ONLY from the on-chain settlement
+  ledger.
+- **`services/tractionMetrics.ts` (`computeRealTractionMetrics`)** rolls up
+  `store.onchainSettlements` into: `topCreators` (real USDC earned per contributor
+  address, ranked), `avgPaymentPerPiece` (real gross / real unlocks), and
+  `readerToPayerConversion` (`realBuyers/visitors`). Wired into `traction.stats`.
+- **Visitor + real-buyer tracking:** `store.visitors`/`realBuyers` sets (persisted),
+  `recordVisitor`/`recordRealBuyer` (buyer ⊆ visitor). `recordRealBuyer` fires only
+  where real USDC moves (`payLiveForPiece`, `claimWalletPayment`). New public
+  `traction.visit` mutation; web pings it on storefront + piece load.
+- **Reading agent now settles REAL:** `readingAgent.ts` swapped `payForPiece` →
+  `sponsoredUnlock` (real via relayer on prod, simulated only as zero-key dev
+  fallback), so the marquee agentic demo produces verifiable creator payouts that
+  feed the leaderboard.
+- **Web:** `TractionHero` retuned to the 4 real RFB-06 metrics (Creators paid /
+  Avg per piece / Buyers / Reader→payer %) + a secondary real line; new
+  `CreatorLeaderboard` panel (ranked addresses → real $ earned, explorer-linked),
+  shown beside `OnchainTraction` on the storefront.
+- **Nothing-simulated note:** prod runs LIVE_X402 + funded relayer, so all UI buy
+  paths + the reading agent settle real; the displayed metrics read only the real
+  ledger. Mirror mode stays ONLY as the zero-key local-dev fallback. Soft
+  `pieces.unlock` / MCP `pay_for_piece` remain dev paths, excluded from displayed
+  metrics. (Deferred in plan: per-creator leaderboard was the build; continuous
+  engine, agent-to-agent, TipJar widget still future.)
+- Tests **71/71** (+3 metrics: leaderboard aggregation/rank, conversion math,
+  empty-safe). Typecheck + web build clean (7 routes). Deploy: push + `railway up`.
+
+**My Purchases library + no-wallet recovery codes (session 4):**
 
 **My Purchases library + no-wallet recovery codes (session 4):**
 - **Clarified model:** purchases ARE server-side (the `entitlements` set, persisted

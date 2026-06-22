@@ -6,8 +6,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { trpc, errorInfo } from "../lib/trpc";
-import { AgentReader, OnchainTraction, PieceCard, RestorePurchases, TractionHero, type Piece, type Traction } from "../components/storefront";
+import { trpc, errorInfo, getReaderId } from "../lib/trpc";
+import { AgentReader, CreatorLeaderboard, OnchainTraction, PieceCard, RestorePurchases, TractionHero, type Piece, type Traction } from "../components/storefront";
 
 export default function Storefront() {
   const [pieces, setPieces] = useState<Piece[]>([]);
@@ -33,6 +33,8 @@ export default function Storefront() {
 
   useEffect(() => {
     refresh();
+    // Count this unique visitor (the reader-to-payer conversion denominator).
+    trpc.traction.visit.mutate({ visitorId: getReaderId() }).catch(() => {});
     const t = window.setInterval(refresh, 8000);
     return () => window.clearInterval(t);
   }, [refresh]);
@@ -70,7 +72,8 @@ export default function Storefront() {
 
       <TractionHero stats={stats} />
 
-      <div className="mt-6">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <CreatorLeaderboard stats={stats} />
         <OnchainTraction stats={stats} />
       </div>
 

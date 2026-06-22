@@ -111,6 +111,16 @@ export class Store {
   buyers = new Set<string>();
 
   /**
+   * Unique visitors (any reader id that opened the storefront) and the subset who
+   * became REAL buyers (an unlock that settled real USDC on Arc — never a
+   * simulated one). Together they give the RFB-06 "reader-to-payer conversion"
+   * metric, and `realBuyers` powers the real-only "Buyers" headline. `realBuyers`
+   * is always a subset of `visitors`.
+   */
+  visitors = new Set<string>();
+  realBuyers = new Set<string>();
+
+  /**
    * Recovery codes for no-wallet buyers: a short, shareable code → the reader id
    * that owns some purchases. Redeeming copies that reader's entitlements onto the
    * redeeming device's id, so an anonymous buyer can restore their library on a
@@ -375,6 +385,24 @@ export class Store {
   recordBuyer(buyer: string | null | undefined): void {
     const id = buyer?.trim().toLowerCase();
     if (id) this.buyers.add(id);
+  }
+
+  /** Record a unique storefront visitor (the conversion denominator). */
+  recordVisitor(visitor: string | null | undefined): void {
+    const id = visitor?.trim().toLowerCase();
+    if (id) this.visitors.add(id);
+  }
+
+  /**
+   * Record a buyer whose unlock settled REAL USDC on Arc. Also counts them as a
+   * visitor so real buyers are always a subset of visitors (conversion ≤ 100%).
+   */
+  recordRealBuyer(buyer: string | null | undefined): void {
+    const id = buyer?.trim().toLowerCase();
+    if (id) {
+      this.realBuyers.add(id);
+      this.visitors.add(id);
+    }
   }
 
   /** Map a recovery code to the reader id that issued it. */

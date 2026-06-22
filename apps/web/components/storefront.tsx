@@ -60,30 +60,48 @@ function SplitBar({ contributors }: { contributors: Piece["contributors"] }) {
   );
 }
 
-/** The headline: total creator payouts + unlocks across the whole platform. */
+/** The headline: the four RFB-06 traction metrics, sourced ONLY from real
+ *  on-chain Arc settlements — nothing simulated. */
 export function TractionHero({ stats }: { stats: Traction | null }) {
+  // The judged RFB-06 metrics, verbatim: creators earning · total creator payouts
+  // · average payment per piece · reader-to-payer conversion.
   const cells = [
-    { label: "Creators paid", value: stats ? stats.totalCreatorPaid : "—", accent: "#34d399", prefix: "$" },
-    { label: "Unlocks", value: stats ? String(stats.totalUnlocks) : "—", accent: "#a5b4fc", prefix: "" },
-    { label: "Buyers", value: stats ? String(stats.uniqueBuyers) : "—", accent: "#f472b6", prefix: "" },
-    { label: "Contributors", value: stats ? String(stats.contributorCount) : "—", accent: "#fbbf24", prefix: "" },
-    { label: "Chains", value: stats ? String(stats.chainCount) : "—", accent: "#22d3ee", prefix: "" },
+    { label: "Creators paid (real)", value: stats ? stats.onchainCreatorPaid : "—", accent: "#34d399", prefix: "$", suffix: "" },
+    { label: "Avg / piece", value: stats ? stats.avgPaymentPerPiece : "—", accent: "#a5b4fc", prefix: "$", suffix: "" },
+    { label: "Buyers", value: stats ? String(stats.realBuyerCount) : "—", accent: "#f472b6", prefix: "", suffix: "" },
+    { label: "Reader→payer", value: stats ? String(stats.readerToPayerConversion) : "—", accent: "#fbbf24", prefix: "", suffix: "%" },
+  ];
+  // A smaller secondary line of supporting real numbers.
+  const sub = [
+    { label: "Unlocks (real)", value: stats ? String(stats.onchainSettlementCount) : "—" },
+    { label: "Visitors", value: stats ? String(stats.uniqueVisitors) : "—" },
+    { label: "Creators", value: stats ? String(stats.contributorCount) : "—" },
+    { label: "Chains", value: stats ? String(stats.chainCount) : "—" },
   ];
   return (
     <div className="card p-5 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
-        <div className="text-[11px] uppercase tracking-wider text-slate-400">Live traction · paid out to creators</div>
-        {stats ? <Pill text={stats.onchainMode === "live" ? "LIVE Arc" : "simulated"} tone={stats.onchainMode === "live" ? "emerald" : "slate"} /> : null}
+        <div className="text-[11px] uppercase tracking-wider text-slate-400">Live traction · real USDC paid to creators on Arc</div>
+        {stats ? <Pill text={stats.liveAgent ? "LIVE Arc · verifiable" : "live mode"} tone="emerald" /> : null}
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {cells.map((c) => (
           <div key={c.label}>
             <div className="text-2xl font-semibold tabular-nums sm:text-3xl" style={{ color: c.accent }}>
               {c.prefix}
               {c.value}
+              {c.suffix}
             </div>
             <div className="mt-1 text-[11px] uppercase tracking-wider text-slate-400">{c.label}</div>
           </div>
+        ))}
+      </div>
+      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-slate-800 pt-3 text-[11px] text-slate-400">
+        {sub.map((s) => (
+          <span key={s.label}>
+            <span className="font-semibold text-slate-300 tabular-nums">{s.value}</span>{" "}
+            <span className="uppercase tracking-wider">{s.label}</span>
+          </span>
         ))}
       </div>
     </div>
@@ -226,6 +244,58 @@ export function OnchainTraction({ stats }: { stats: Traction | null }) {
                     </span>
                   ))}
                 </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Creators earning" — the RFB-06 headline metric made literal: a ranked board of
+ * every creator and the REAL USDC they've earned on Arc, each address linked to
+ * its on-chain explorer page. Sourced only from verifiable settlements.
+ */
+export function CreatorLeaderboard({ stats }: { stats: Traction | null }) {
+  const creators = stats?.topCreators ?? [];
+  return (
+    <div className="card p-5 sm:p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
+          🏆 Creators earning · real USDC on Arc
+        </span>
+        {stats ? <span className="text-[11px] uppercase tracking-wider text-slate-400">{creators.length} paid</span> : null}
+      </div>
+      {creators.length === 0 ? (
+        <p className="text-sm text-slate-400">
+          No creator has earned on-chain yet. Unlock a piece below (or let the AI agent read & pay) to put a
+          verifiable, real payout on the board.
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          {creators.map((c, i) => (
+            <div key={c.address} className="flex items-center justify-between gap-3 rounded-lg border border-slate-700/50 bg-slate-900/40 px-3 py-2">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="w-5 shrink-0 text-center text-sm font-semibold tabular-nums text-slate-500">{i + 1}</span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {c.roles.map((r) => <Pill key={r} text={r} tone="slate" />)}
+                  </div>
+                  <a
+                    href={`${stats!.explorer}/address/${c.address}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mono mt-0.5 block truncate text-xs text-indigo-300 underline decoration-dotted hover:text-indigo-200"
+                  >
+                    {c.address.slice(0, 10)}…{c.address.slice(-6)} ↗
+                  </a>
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-base font-semibold tabular-nums text-emerald-300">${c.earnedUSDC}</div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">{c.payouts} payout{c.payouts === 1 ? "" : "s"}</div>
               </div>
             </div>
           ))}
