@@ -51,7 +51,9 @@ app.get("/health", (c) =>
     allReal: liveAgentReady(),
     liveX402: config.liveX402,
     chainId: 5042002,
-    rpc: config.rpcHttp,
+    // Redact any per-user node token (e.g. the Canteen swrm_ token) — never
+    // expose a secret RPC credential on a public endpoint.
+    rpc: config.rpcHttp.replace(/swrm_[A-Za-z0-9]+/g, "swrm_***"),
   }),
 );
 
