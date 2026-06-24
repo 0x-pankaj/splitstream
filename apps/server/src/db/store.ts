@@ -353,6 +353,19 @@ export class Store {
     return this.pieces.get(id);
   }
 
+  /**
+   * Replace a piece's contributors in place (admin), preserving its unlocks /
+   * totalPaid stats. Used to swap demo placeholder addresses for real creator
+   * wallets without resetting the piece. The change persists via the next
+   * snapshot flush.
+   */
+  setPieceContributors(id: string, contributors: Contributor[]): Piece {
+    const piece = this.pieces.get(id);
+    if (!piece) throw new Error(`No such piece: ${id}`);
+    piece.contributors = contributors;
+    return piece;
+  }
+
   /** All pieces, newest first; optionally scoped to one publisher tenant. */
   listPieces(publisherTenantId?: string): Piece[] {
     const all = [...this.pieces.values()];

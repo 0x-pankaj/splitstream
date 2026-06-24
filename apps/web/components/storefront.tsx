@@ -1074,10 +1074,12 @@ export function PieceCard({
             disabled={sponsorBusy}
             className="mt-4 w-full rounded-xl bg-emerald-500/90 px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-emerald-400 disabled:opacity-60"
           >
-            {sponsorBusy ? "Splitting across chains…" : `Unlock for $${piece.price}`}
+            {sponsorBusy ? "Settling on Arc — paying creators… (~10s)" : `Unlock for $${piece.price}`}
           </button>
           <p className="mt-1.5 text-center text-[11px] text-slate-500">
-            No wallet needed — we cover the payment. Stays unlocked on this device.
+            {sponsorBusy
+              ? "Real USDC is fanning out to each creator on-chain — hang tight."
+              : "No wallet needed — we cover the payment. Stays unlocked on this device."}
           </p>
 
           {/* Optional self-custody path — only when an injected wallet exists
@@ -1092,8 +1094,8 @@ export function PieceCard({
                 {walletBusy
                   ? "Confirm in your wallet…"
                   : connAddr
-                    ? `💳 Pay $${piece.price} from ${connAddr.slice(0, 6)}…${connAddr.slice(-4)}`
-                    : `💳 Or pay from your own wallet · REAL USDC`}
+                    ? `💳 Pay $${piece.price} from ${connAddr.slice(0, 6)}…${connAddr.slice(-4)} (optional)`
+                    : `💳 Or pay from your own wallet (optional)`}
               </button>
               {/* Always show which account/network is about to pay, so a
                   multi-account wallet never charges the wrong one silently. */}
@@ -1108,10 +1110,10 @@ export function PieceCard({
                     ) : (
                       <span className="text-amber-400">wrong network — we'll switch to Arc</span>
                     )}
-                    {" · switch accounts in your wallet to change"}
+                    {" · needs test USDC · switch accounts in your wallet to change"}
                   </>
                 ) : (
-                  <>Connect your wallet — the confirm popup shows which account pays.</>
+                  <>Optional — needs Arc Testnet + test USDC. The green button above needs neither.</>
                 )}
               </p>
             </>

@@ -35,7 +35,7 @@ import { walletPaymentInfo, claimWalletPayment } from "../services/walletPayment
 import { restoreEntitlements } from "../services/walletRestore.js";
 import { issueRecoveryCode, redeemRecoveryCode, readerLibrary } from "../services/recovery.js";
 import { computeRealTractionMetrics } from "../services/tractionMetrics.js";
-import { CreatePieceSchema, CallPieceSchema, parseUsdc6, ARC_TESTNET } from "@arcane/shared";
+import { CreatePieceSchema, CallPieceSchema, ContributorSchema, assertBpsSum, parseUsdc6, ARC_TESTNET } from "@arcane/shared";
 
 /** Arc L1 native USDC system contract (6dp ERC-20 view). */
 const ARC_USDC = "0x3600000000000000000000000000000000000000";
@@ -417,6 +417,30 @@ export const appRouter = router({
             preview: input.preview,
             content: input.content,
           });
+          whitelistContributors(ctx.store, piece);
+          return serializePiece(piece);
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
+    /**
+     * Admin: replace a piece's contributors (e.g. swap demo placeholder addresses
+     * for real creator wallets) without resetting its stats. Requires a publisher
+     * API key; bps must sum to 10000; new addresses are re-whitelisted so the
+     * compliance precheck keeps passing.
+     */
+    setContributors: protectedProcedure
+      .input(
+        z.object({
+          pieceId: z.string().min(1),
+          contributors: z.array(ContributorSchema).min(1).max(20),
+        }),
+      )
+      .mutation(({ ctx, input }) => {
+        try {
+          assertBpsSum(input.contributors);
+          const piece = ctx.store.setPieceContributors(input.pieceId, input.contributors);
           whitelistContributors(ctx.store, piece);
           return serializePiece(piece);
         } catch (err) {
