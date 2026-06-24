@@ -6,9 +6,17 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { formatUsdc6, parseUsdc6 } from "@arcane/shared";
+import { formatUsdc6, parseUsdc6, ARC_TESTNET } from "@arcane/shared";
 import { trpc, errorInfo, getReaderId, API_URL, getApiKey } from "../lib/trpc";
-import { payPieceOnchain, rememberWallet, hasWallet, signOwnership } from "../lib/wallet";
+import {
+  payPieceOnchain,
+  rememberWallet,
+  hasWallet,
+  signOwnership,
+  connectedAddress,
+  connectedChainId,
+  onWalletChange,
+} from "../lib/wallet";
 import { getOwnedContent, cacheOwnedContent, subscribeOwned } from "../lib/owned";
 import { ChainBadge, PathBadge, Pill, TxLink } from "./ui";
 
@@ -339,7 +347,10 @@ export function FanOut({ unlock }: { unlock: Unlock }) {
   );
 }
 
-const CHAINS = ["base", "arbitrum", "ethereum", "solana"] as const;
+// Revenue-split target chains for the publish form. EVM-only: the live split
+// settles real USDC on Arc to each EVM chain with no skipped leg. (Solana payouts
+// route via CCTP — roadmap — so they're not offered as a split target here yet.)
+const CHAINS = ["base", "arbitrum", "ethereum"] as const;
 const KINDS = ["article", "photo", "song", "podcast", "api"] as const;
 
 interface Row {
@@ -837,10 +848,27 @@ export function PieceCard({
   // Whether an injected wallet is actually present. Resolved on the client only,
   // so the "pay with your own wallet" button never shows on a phone browser.
   const [walletAvailable, setWalletAvailable] = useState(false);
+  // Which wallet account/network is currently active — shown before paying so you
+  // always know which account will be charged (updates live on a wallet switch).
+  const [connAddr, setConnAddr] = useState<string | null>(null);
+  const [connChain, setConnChain] = useState<number | null>(null);
+  const onArc = connChain === ARC_TESTNET.chainId;
 
   useEffect(() => {
     paymentInfoOnce().then(setPayInfo).catch(() => {});
     setWalletAvailable(hasWallet());
+  }, []);
+
+  // Track the connected account + chain, and re-read whenever the user switches
+  // the active account or network in their wallet.
+  useEffect(() => {
+    if (!hasWallet()) return;
+    const refresh = () => {
+      connectedAddress().then(setConnAddr).catch(() => {});
+      connectedChainId().then(setConnChain).catch(() => {});
+    };
+    refresh();
+    return onWalletChange(refresh);
   }, []);
 
   // Reveal content already unlocked on this device from the local cache, and stay
@@ -1055,13 +1083,38 @@ export function PieceCard({
           {/* Optional self-custody path — only when an injected wallet exists
               (hidden on mobile browsers, where it wouldn't work). */}
           {payInfo?.enabled && walletAvailable ? (
-            <button
-              onClick={walletRun}
-              disabled={walletBusy}
-              className="mt-2 w-full rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-3 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-400/20 disabled:opacity-60"
-            >
-              {walletBusy ? "Confirm in your wallet…" : `💳 Or pay from your own wallet · REAL USDC`}
-            </button>
+            <>
+              <button
+                onClick={walletRun}
+                disabled={walletBusy}
+                className="mt-2 w-full rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-3 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-400/20 disabled:opacity-60"
+              >
+                {walletBusy
+                  ? "Confirm in your wallet…"
+                  : connAddr
+                    ? `💳 Pay $${piece.price} from ${connAddr.slice(0, 6)}…${connAddr.slice(-4)}`
+                    : `💳 Or pay from your own wallet · REAL USDC`}
+              </button>
+              {/* Always show which account/network is about to pay, so a
+                  multi-account wallet never charges the wrong one silently. */}
+              <p className="mt-1.5 text-center text-[11px] text-slate-500">
+                {connAddr ? (
+                  <>
+                    Paying from{" "}
+                    <span className="mono text-slate-400">{connAddr.slice(0, 6)}…{connAddr.slice(-4)}</span>
+                    {" · "}
+                    {onArc ? (
+                      <span className="text-emerald-400">Arc ✓</span>
+                    ) : (
+                      <span className="text-amber-400">wrong network — we'll switch to Arc</span>
+                    )}
+                    {" · switch accounts in your wallet to change"}
+                  </>
+                ) : (
+                  <>Connect your wallet — the confirm popup shows which account pays.</>
+                )}
+              </p>
+            </>
           ) : null}
         </>
       )}

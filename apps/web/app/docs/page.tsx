@@ -188,7 +188,7 @@ export default function DocsPage() {
     "contributors": [
       { "role":"writer",       "address":"0x1111…", "targetChain":"base",     "splitBps":6000 },
       { "role":"editor",       "address":"0x2222…", "targetChain":"arbitrum", "splitBps":2500 },
-      { "role":"photographer", "address":"9xQe…",   "targetChain":"solana",   "splitBps":1500 }
+      { "role":"photographer", "address":"0x3333…", "targetChain":"ethereum", "splitBps":1500 }
     ]
   }'`}</Code>
             <p className="text-sm text-slate-400">It&apos;s now live in the catalog and shareable at <code className="mono">/piece/&lt;id&gt;</code>.</p>

@@ -74,6 +74,41 @@ export async function connectedAddress(): Promise<string | null> {
   }
 }
 
+/** The wallet's currently-selected chain id (decimal), or null. */
+export async function connectedChainId(): Promise<number | null> {
+  if (!hasWallet()) return null;
+  try {
+    const hex = (await getProvider().request({ method: "eth_chainId" })) as string;
+    return Number.parseInt(hex, 16);
+  } catch {
+    return null;
+  }
+}
+
+interface Eip1193ProviderWithEvents extends Eip1193Provider {
+  on?(event: string, handler: (...args: unknown[]) => void): void;
+  removeListener?(event: string, handler: (...args: unknown[]) => void): void;
+}
+
+/**
+ * Subscribe to wallet account / network changes — fires `cb` whenever the user
+ * switches the active account or chain in their wallet, so the UI can show which
+ * account is about to pay. Returns an unsubscribe fn (no-op if events aren't
+ * supported).
+ */
+export function onWalletChange(cb: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const eth = (window as unknown as { ethereum?: Eip1193ProviderWithEvents }).ethereum;
+  if (!eth?.on || !eth.removeListener) return () => {};
+  const handler = () => cb();
+  eth.on("accountsChanged", handler);
+  eth.on("chainChanged", handler);
+  return () => {
+    eth.removeListener?.("accountsChanged", handler);
+    eth.removeListener?.("chainChanged", handler);
+  };
+}
+
 // Remember the wallet a reader last paid from — a plain string in localStorage —
 // so we can re-check entitlements on load WITHOUT ever touching the wallet (no
 // connect popup on refresh). Set only after an explicit, user-initiated payment.
