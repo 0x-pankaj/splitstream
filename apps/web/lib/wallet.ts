@@ -33,12 +33,37 @@ const ERC20_TRANSFER_ABI = [
 
 interface Eip1193Provider {
   request(args: { method: string; params?: unknown[] }): Promise<unknown>;
+  isMetaMask?: boolean;
+  providers?: Eip1193Provider[];
 }
 
 function getProvider(): Eip1193Provider {
   const eth = typeof window !== "undefined" ? (window as unknown as { ethereum?: Eip1193Provider }).ethereum : undefined;
   if (!eth) throw new Error("No Ethereum wallet found — install MetaMask (or any injected wallet) to pay with real USDC.");
+  // When several wallet extensions are installed they expose an array; the one
+  // bound to `window.ethereum` may be a different (non-popping) wallet. Prefer
+  // MetaMask, else the first injected provider — this is the usual cause of
+  // "confirm in your wallet" with no popup.
+  if (Array.isArray(eth.providers) && eth.providers.length > 0) {
+    return eth.providers.find((p) => p.isMetaMask) ?? eth.providers[0]!;
+  }
   return eth;
+}
+
+/** Turn a raw wallet/provider error into something actionable for the reader. */
+export function walletErrorMessage(err: unknown): string {
+  const e = err as { code?: number; message?: string } | undefined;
+  switch (e?.code) {
+    case 4001:
+      return "You rejected the request in your wallet.";
+    case -32002:
+      return "A wallet request is already open — click your wallet extension icon to finish or dismiss it, then try again.";
+    case 4900:
+    case 4901:
+      return "Your wallet is disconnected — open the extension, unlock it, and connect to this site.";
+    default:
+      return e?.message || "Wallet request failed. Open your wallet extension (make sure it's unlocked) and try again.";
+  }
 }
 
 /** True if an injected wallet is present. */

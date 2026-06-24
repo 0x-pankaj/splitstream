@@ -16,6 +16,7 @@ import {
   connectedAddress,
   connectedChainId,
   onWalletChange,
+  walletErrorMessage,
 } from "../lib/wallet";
 import { getOwnedContent, cacheOwnedContent, subscribeOwned } from "../lib/owned";
 import { ChainBadge, PathBadge, Pill, TxLink } from "./ui";
@@ -930,7 +931,7 @@ export function PieceCard({
       }
       onUnlocked?.();
     } catch (e) {
-      setError(errorInfo(e).message);
+      setError(walletErrorMessage(e));
     } finally {
       setWalletBusy(false);
     }
@@ -956,7 +957,7 @@ export function PieceCard({
       setCall(result);
       onUnlocked?.();
     } catch (e) {
-      setError(errorInfo(e).message);
+      setError(walletErrorMessage(e));
     } finally {
       setWalletCallBusy(false);
     }
@@ -1113,7 +1114,9 @@ export function PieceCard({
                     : `💳 Pay & call from your own wallet · $${piece.price}`}
               </button>
               <p className="mt-1.5 text-center text-[11px] text-slate-500">
-                {connAddr ? (
+                {walletCallBusy ? (
+                  <span className="text-amber-400">Waiting for your wallet… no popup? Open your wallet extension (unlock it) — a request may be pending.</span>
+                ) : connAddr ? (
                   <>
                     Paying from <span className="mono text-slate-400">{connAddr.slice(0, 6)}…{connAddr.slice(-4)}</span>
                     {" · "}
@@ -1161,7 +1164,9 @@ export function PieceCard({
               {/* Always show which account/network is about to pay, so a
                   multi-account wallet never charges the wrong one silently. */}
               <p className="mt-1.5 text-center text-[11px] text-slate-500">
-                {connAddr ? (
+                {walletBusy ? (
+                  <span className="text-amber-400">Waiting for your wallet… no popup? Open your wallet extension (unlock it) — a request may be pending.</span>
+                ) : connAddr ? (
                   <>
                     Paying from{" "}
                     <span className="mono text-slate-400">{connAddr.slice(0, 6)}…{connAddr.slice(-4)}</span>
