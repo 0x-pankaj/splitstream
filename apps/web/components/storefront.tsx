@@ -75,13 +75,15 @@ export function TractionHero({ stats }: { stats: Traction | null }) {
   // · average payment per piece · reader-to-payer conversion.
   const cells = [
     { label: "Creators paid (real)", value: stats ? stats.onchainCreatorPaid : "—", accent: "#34d399", prefix: "$", suffix: "" },
-    { label: "Avg / piece", value: stats ? stats.avgPaymentPerPiece : "—", accent: "#a5b4fc", prefix: "$", suffix: "" },
+    // Purchases = every buy event (each unlock / call), the maximal real-activity
+    // number — it ticks up on every single buy across all flows.
+    { label: "Purchases", value: stats ? String(stats.totalUnlocks) : "—", accent: "#a5b4fc", prefix: "", suffix: "" },
     { label: "Buyers", value: stats ? String(stats.realBuyerCount) : "—", accent: "#f472b6", prefix: "", suffix: "" },
     { label: "Reader→payer", value: stats ? String(stats.readerToPayerConversion) : "—", accent: "#fbbf24", prefix: "", suffix: "%" },
   ];
   // A smaller secondary line of supporting real numbers.
   const sub = [
-    { label: "Unlocks (real)", value: stats ? String(stats.onchainSettlementCount) : "—" },
+    { label: "Avg / piece", value: stats ? `$${stats.avgPaymentPerPiece}` : "—" },
     { label: "Visitors", value: stats ? String(stats.uniqueVisitors) : "—" },
     { label: "Creators", value: stats ? String(stats.contributorCount) : "—" },
     { label: "Chains", value: stats ? String(stats.chainCount) : "—" },

@@ -286,6 +286,12 @@ export function pieceRoutes(store: Store): Hono {
             .map((p) => ({ role: p.role, address: p.address, share6: BigInt(p.share6), txHash: p.txHash! })),
           at: new Date().toISOString(),
         });
+        // Count the paying agent as a (real) buyer — x402 settles real USDC on
+        // Arc, so it belongs in the buyer/conversion numbers just like a wallet pay.
+        if (verified.payer) {
+          store.recordBuyer(verified.payer);
+          store.recordRealBuyer(verified.payer);
+        }
         const upstream = await proxyUpstream(piece, parsed.data.input);
         const updated = store.getPiece(piece.id)!;
         return c.json(
