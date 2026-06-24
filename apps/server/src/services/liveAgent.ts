@@ -29,10 +29,14 @@ import { verifyArcUsdcPayment, payContributorsOnArc, type OnArcPayout } from "./
 import { proxyUpstream, payForPiece, type UpstreamResult } from "./splitEngine.js";
 import type { Store } from "../db/store.js";
 
-/** Top up the agent when its USDC balance drops below this (6dp). */
-const LOW_BALANCE_6 = 50_000n; // $0.05
-/** Native-USDC top-up amount (18dp) = $1.00. */
-const TOPUP_18 = 1_000_000_000_000_000_000n;
+/**
+ * Top up the agent when its USDC balance drops below this (6dp). Kept well above
+ * a single unlock price so the agent never lands in a low-balance dead-zone where
+ * `transfer(price) + gas` can't clear even though the nominal balance looks fine.
+ */
+const LOW_BALANCE_6 = 1_000_000n; // $1.00
+/** Native-USDC top-up amount (18dp) = $3.00 — refills to a healthy buffer. */
+const TOPUP_18 = 3_000_000_000_000_000_000n;
 
 let _agent: Account | undefined;
 let _agentWallet: WalletClient | undefined;
