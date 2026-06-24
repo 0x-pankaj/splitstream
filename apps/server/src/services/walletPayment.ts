@@ -16,7 +16,7 @@ import { ARC_TESTNET, USDC, ArcaneError, computeSplit, formatUsdc6, errors, type
 import { config } from "../config.js";
 import { relayerAccount } from "../chain/arc.js";
 import { verifyArcUsdcPayment, payContributorsOnArc, type OnArcPayout } from "./x402Settle.js";
-import { whitelistContributors } from "./splitEngine.js";
+import { whitelistContributors, proxyUpstream, type UpstreamResult } from "./splitEngine.js";
 import type { Store } from "../db/store.js";
 
 const badPayment = (msg: string) => new ArcaneError("VALIDATION_FAILED", msg, 400);
@@ -52,14 +52,16 @@ export interface WalletClaimResult {
 }
 
 /**
- * Verify a reader's real USDC payment for a piece and, on success, grant a
- * wallet-keyed entitlement and settle the split to contributors on Arc.
+ * Verify a reader's real USDC payment for a piece, burn the tx (anti-replay),
+ * grant a wallet-keyed entitlement, fan the split out to contributors on Arc, and
+ * record the verifiable on-chain settlement. Shared by the content claim and the
+ * API-call claim. Returns the verified payer + the real payout legs.
  */
-export async function claimWalletPayment(
+async function verifyAndSettle(
   store: Store,
   piece: Piece,
   txHash: string,
-): Promise<WalletClaimResult> {
+): Promise<{ payer: string; payouts: OnArcPayout[] }> {
   if (!config.liveX402 || !relayerAccount) {
     throw errors.internal("real wallet payments are not enabled (need LIVE_X402 + a funded relayer)");
   }
@@ -102,14 +104,66 @@ export async function claimWalletPayment(
     at: new Date().toISOString(),
   });
 
+  return { payer: verified.from, payouts };
+}
+
+/**
+ * Verify a reader's real USDC payment for a piece and, on success, grant a
+ * wallet-keyed entitlement and settle the split to contributors on Arc.
+ */
+export async function claimWalletPayment(
+  store: Store,
+  piece: Piece,
+  txHash: string,
+): Promise<WalletClaimResult> {
+  const { payer, payouts } = await verifyAndSettle(store, piece, txHash);
   return {
     ok: true,
-    payer: verified.from,
+    payer,
     paymentTx: txHash,
     priceUSDC: formatUsdc6(piece.price6),
     content: piece.kind === "api" ? null : piece.content ?? null,
     payouts,
     explorer: ARC_TESTNET.explorer,
     pieceUnlocks: store.getPiece(piece.id)!.unlocks,
+  };
+}
+
+export interface WalletCallResult {
+  ok: true;
+  payer: string;
+  paymentTx: string;
+  priceUSDC: string;
+  payouts: OnArcPayout[];
+  explorer: string;
+  /** The upstream API response, proxied after the real payment was settled. */
+  upstream: UpstreamResult;
+}
+
+/**
+ * The reader-pays-from-wallet path for an "api" piece: verify the reader's real
+ * USDC payment on Arc, settle the split to the API owner(s), then proxy one
+ * upstream call and return the response. The reader pays (not the agent) — so
+ * "you paid for this call" is cryptographically true.
+ */
+export async function claimWalletCall(
+  store: Store,
+  piece: Piece,
+  txHash: string,
+  input?: Record<string, unknown>,
+): Promise<WalletCallResult> {
+  if (piece.kind !== "api" || !piece.endpoint) {
+    throw badPayment(`Piece ${piece.id} is not a callable API service`);
+  }
+  const { payer, payouts } = await verifyAndSettle(store, piece, txHash);
+  const upstream = await proxyUpstream(piece, input);
+  return {
+    ok: true,
+    payer,
+    paymentTx: txHash,
+    priceUSDC: formatUsdc6(piece.price6),
+    payouts,
+    explorer: ARC_TESTNET.explorer,
+    upstream,
   };
 }

@@ -31,7 +31,7 @@ import { addTenantRecipient, removeTenantRecipient } from "../services/recipient
 import { callPaidService, payForPiece, whitelistContributors } from "../services/splitEngine.js";
 import { runReadingAgent } from "../services/readingAgent.js";
 import { payLiveForPiece, liveAgentReady, sponsoredUnlock } from "../services/liveAgent.js";
-import { walletPaymentInfo, claimWalletPayment } from "../services/walletPayment.js";
+import { walletPaymentInfo, claimWalletPayment, claimWalletCall } from "../services/walletPayment.js";
 import { restoreEntitlements } from "../services/walletRestore.js";
 import { issueRecoveryCode, redeemRecoveryCode, readerLibrary } from "../services/recovery.js";
 import { computeRealTractionMetrics } from "../services/tractionMetrics.js";
@@ -554,6 +554,46 @@ export const appRouter = router({
           const piece = ctx.store.getPiece(input.pieceId);
           if (!piece) throw new Error(`No such piece: ${input.pieceId}`);
           return await claimWalletPayment(ctx.store, piece, input.txHash);
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
+    /**
+     * Reader pays for ONE API call from their own wallet (real USDC on Arc): we
+     * verify the payment, settle the split to the API owner(s), then proxy the
+     * upstream call and return the response. The reader pays — not the agent.
+     * Returns the same shape as the live `callApi` so the UI renders it identically.
+     */
+    claimCall: publicProcedure
+      .input(
+        z.object({
+          pieceId: z.string().min(1),
+          txHash: z.string().min(1),
+          input: z.record(z.unknown()).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const piece = ctx.store.getPiece(input.pieceId);
+          if (!piece) throw new Error(`No such piece: ${input.pieceId}`);
+          const r = await claimWalletCall(ctx.store, piece, input.txHash, input.input);
+          return {
+            settlementMode: "live" as const,
+            unlock: {
+              pieceId: piece.id,
+              title: piece.title,
+              payer: r.payer,
+              price6: piece.price6.toString(),
+              contributorCount: piece.contributors.length,
+              chains: [...new Set(piece.contributors.map((c) => c.targetChain))],
+              content: null as string | null,
+              paymentTx: r.paymentTx,
+              explorer: r.explorer,
+              payouts: r.payouts,
+            },
+            upstream: r.upstream,
+          };
         } catch (err) {
           throw toTRPCError(err);
         }

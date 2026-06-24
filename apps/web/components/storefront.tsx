@@ -35,6 +35,7 @@ export type Unlock = Awaited<ReturnType<typeof trpc.pieces.unlock.mutate>>;
 export type Traction = Awaited<ReturnType<typeof trpc.traction.stats.query>>;
 export type ReadingSession = Awaited<ReturnType<typeof trpc.agent.read.mutate>>;
 export type ServiceCall = Awaited<ReturnType<typeof trpc.pieces.callApi.mutate>>;
+export type WalletCall = Awaited<ReturnType<typeof trpc.pieces.claimCall.mutate>>;
 export type LivePay = Awaited<ReturnType<typeof trpc.pieces.payLive.mutate>>;
 export type Sponsored = Awaited<ReturnType<typeof trpc.pieces.sponsoredUnlock.mutate>>;
 
@@ -835,7 +836,8 @@ export function PieceCard({
   const [busy, setBusy] = useState(false);
   const [liveBusy, setLiveBusy] = useState(false);
   const [unlock, setUnlock] = useState<Unlock | null>(null);
-  const [call, setCall] = useState<ServiceCall | null>(null);
+  const [call, setCall] = useState<ServiceCall | WalletCall | null>(null);
+  const [walletCallBusy, setWalletCallBusy] = useState(false);
   const [livePay, setLivePay] = useState<LivePay | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Content this browser already paid for — fetched on load so a refresh / return
@@ -931,6 +933,32 @@ export function PieceCard({
       setError(errorInfo(e).message);
     } finally {
       setWalletBusy(false);
+    }
+  };
+
+  // Reader pays for one API call from THEIR OWN wallet (real USDC on Arc), vs the
+  // agent-pays "Pay & call" button. Pops the wallet, settles, returns the result.
+  const walletCallRun = async () => {
+    if (!payInfo?.enabled) return;
+    setWalletCallBusy(true);
+    setError(null);
+    try {
+      const price6 = parseUsdc6(piece.price).toString();
+      const { txHash } = await payPieceOnchain({
+        payTo: payInfo.payTo,
+        usdc: payInfo.usdc,
+        chainId: payInfo.chainId,
+        rpcUrl: payInfo.rpcUrl,
+        explorer: payInfo.explorer,
+        price6,
+      });
+      const result = await trpc.pieces.claimCall.mutate({ pieceId: piece.id, txHash });
+      setCall(result);
+      onUnlocked?.();
+    } catch (e) {
+      setError(errorInfo(e).message);
+    } finally {
+      setWalletCallBusy(false);
     }
   };
 
@@ -1061,13 +1089,44 @@ export function PieceCard({
           ) : null}
         </div>
       ) : isApi ? (
-        <button
-          onClick={run}
-          disabled={busy}
-          className="mt-4 w-full rounded-xl bg-amber-400/90 px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-amber-300 disabled:opacity-60"
-        >
-          {busy ? "Paying & calling…" : `Pay & call · $${piece.price}`}
-        </button>
+        <>
+          {/* Agent-pays: the platform's autonomous agent covers the call (no wallet). */}
+          <button
+            onClick={run}
+            disabled={busy}
+            className="mt-4 w-full rounded-xl bg-amber-400/90 px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-amber-300 disabled:opacity-60"
+          >
+            {busy ? "Agent paying & calling…" : `🤖 Agent pays & calls · $${piece.price}`}
+          </button>
+          {/* Reader-pays: pay for this call from your own wallet (real USDC). */}
+          {payInfo?.enabled && walletAvailable ? (
+            <>
+              <button
+                onClick={walletCallRun}
+                disabled={walletCallBusy}
+                className="mt-2 w-full rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-3 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-400/20 disabled:opacity-60"
+              >
+                {walletCallBusy
+                  ? "Confirm in your wallet…"
+                  : connAddr
+                    ? `💳 Pay & call from ${connAddr.slice(0, 6)}…${connAddr.slice(-4)} · $${piece.price}`
+                    : `💳 Pay & call from your own wallet · $${piece.price}`}
+              </button>
+              <p className="mt-1.5 text-center text-[11px] text-slate-500">
+                {connAddr ? (
+                  <>
+                    Paying from <span className="mono text-slate-400">{connAddr.slice(0, 6)}…{connAddr.slice(-4)}</span>
+                    {" · "}
+                    {onArc ? <span className="text-emerald-400">Arc ✓</span> : <span className="text-amber-400">we'll switch to Arc</span>}
+                    {" · needs test USDC"}
+                  </>
+                ) : (
+                  <>Optional — needs Arc Testnet + test USDC. The agent button above needs neither.</>
+                )}
+              </p>
+            </>
+          ) : null}
+        </>
       ) : (
         <>
           {/* Primary, walletless buy: the relayer covers it. Works on any phone. */}
