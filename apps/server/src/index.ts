@@ -24,6 +24,7 @@ import { pieceRoutes } from "./routes/pieces.js";
 import { appRouter } from "./trpc/router.js";
 import { makeContextFactory } from "./trpc/context.js";
 import { relayerAccount } from "./chain/arc.js";
+import { liveAgentReady } from "./services/liveAgent.js";
 
 // In live on-chain mode, bind the demo tenant + solvers to the funded,
 // vault-whitelisted relayer address so server payouts settle on Arc L1.
@@ -46,6 +47,9 @@ app.get("/health", (c) =>
     ok: true,
     service: "arcane-treasury",
     onchainEnabled: config.onchainEnabled,
+    /** True when every payment path settles REAL USDC on Arc (no simulation). */
+    allReal: liveAgentReady(),
+    liveX402: config.liveX402,
     chainId: 5042002,
     rpc: config.rpcHttp,
   }),

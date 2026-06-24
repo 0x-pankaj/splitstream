@@ -17,6 +17,25 @@ export const DEMO_AGENT_ID = "agent-adbuyer-01";
 export const DEMO_PIECE_ID = "piece-arc-frontier-001";
 export const DEMO_API_ID = "piece-fx-api-001";
 
+/**
+ * Demo-piece creator addresses, overridable via env so the seeded showcase can
+ * pay REAL recruited-creator wallets (and show up on the real-earnings
+ * leaderboard) with zero code change. Defaults are EVM placeholders for the
+ * keyless local demo. Every leg is EVM so a live unlock settles real USDC to all
+ * three contributors on Arc — no contributor is ever skipped. (Solana payouts
+ * route via CCTP; that's roadmap, not the default live split — see README.)
+ */
+function seedCreator(envKey: string, fallback: string): string {
+  const v = process.env[envKey];
+  return v && /^0x[a-fA-F0-9]{40}$/.test(v) ? v : fallback;
+}
+const WRITER_ADDRESS = seedCreator("SEED_WRITER_ADDRESS", "0x1111111111111111111111111111111111111111");
+const EDITOR_ADDRESS = seedCreator("SEED_EDITOR_ADDRESS", "0x2222222222222222222222222222222222222222");
+const PHOTOGRAPHER_ADDRESS = seedCreator("SEED_PHOTOGRAPHER_ADDRESS", "0x3333333333333333333333333333333333333333");
+
+// (Solana payouts route via CCTP — roadmap; the default live split is EVM-only so
+// every leg settles real USDC on Arc with zero skips.)
+
 /** Recipients the demo tenant has vetted/whitelisted. */
 export const DEMO_RECIPIENTS: Array<{ address: string; chain: TargetChain }> = [
   { address: "0x1111111111111111111111111111111111111111", chain: "base" },
@@ -130,9 +149,11 @@ export function seedDemo(store: Store, opts: SeedOptions = {}): void {
     createdAt: "2026-06-01T00:00:00.000Z",
   });
 
-  // SplitStream: a demo piece whose $0.05 unlock fans out across three chains.
-  // Contributor addresses reuse the already-whitelisted demo recipients so the
-  // unlock path's compliance precheck passes out of the box.
+  // SplitStream: a demo piece whose $0.05 unlock fans out across three EVM chains
+  // (Base / Arbitrum / Ethereum), all settling real USDC on Arc — no skipped leg.
+  // Contributor addresses default to the already-whitelisted demo recipients (so
+  // the compliance precheck passes out of the box) and are overridable via env to
+  // pay real recruited-creator wallets.
   store.createPiece({
     id: DEMO_PIECE_ID,
     publisherTenantId: DEMO_TENANT_ID,
@@ -154,8 +175,8 @@ export function seedDemo(store: Store, opts: SeedOptions = {}): void {
       "## Why it matters for creators",
       "",
       "A $0.05 unlock can be split three ways and settled on three different chains",
-      "without anyone touching ETH or SOL for gas. The reader pays once; the writer",
-      "is paid on Base, the editor on Arbitrum, the photographer on Solana — each in",
+      "without anyone touching ETH for gas. The reader pays once; the writer is paid",
+      "on Base, the editor on Arbitrum, the photographer on Ethereum — each in",
       "native USDC, in under 500ms.",
       "",
       "## The takeaway",
@@ -167,9 +188,9 @@ export function seedDemo(store: Store, opts: SeedOptions = {}): void {
       "*Thanks for paying to read — your $0.05 just fanned out to three creators.*",
     ].join("\n"),
     contributors: [
-      { role: "writer", address: "0x1111111111111111111111111111111111111111", targetChain: "base", splitBps: 6000 },
-      { role: "editor", address: "0x2222222222222222222222222222222222222222", targetChain: "arbitrum", splitBps: 2500 },
-      { role: "photographer", address: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin", targetChain: "solana", splitBps: 1500 },
+      { role: "writer", address: WRITER_ADDRESS, targetChain: "base", splitBps: 6000 },
+      { role: "editor", address: EDITOR_ADDRESS, targetChain: "arbitrum", splitBps: 2500 },
+      { role: "photographer", address: PHOTOGRAPHER_ADDRESS, targetChain: "ethereum", splitBps: 1500 },
     ],
     createdAt: "2026-06-01T00:00:00.000Z",
   });

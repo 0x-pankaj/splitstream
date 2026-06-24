@@ -7,8 +7,10 @@ no-KYC access to authenticated APIs — proven live on Arc Testnet with real USD
 
 A reader — or an AI agent — pays a few cents to unlock a single article, photo,
 or song. That payment is **split instantly across every contributor**, each paid
-on the chain they prefer (Base, Arbitrum, Ethereum, Solana), settling in under
-500ms on Arc. No subscription. No signup or KYC for the reader. No gas tokens.
+on their chain (Base, Arbitrum, Ethereum), settling in under 500ms on Arc in real
+USDC. No subscription. No signup or KYC for the reader. No gas tokens. (Solana
+payouts route via CCTP — on the roadmap; the live default split is EVM-only so
+every leg settles real, with no skipped contributor.)
 
 > Built for the **Lepton Agents Hackathon** (Canteen × Circle × Arc).
 > RFB: *"Monetize a single article, photo, or song, without forcing readers into
@@ -18,9 +20,9 @@ on the chain they prefer (Base, Arbitrum, Ethereum, Solana), settling in under
 
 Most pay-per-article demos pay one creator. SplitStream's headline is the one
 thing that's hard: **a single $0.05 unlock fans out to the writer (Base), the
-editor (Arbitrum), and the photographer (Solana) — instantly, no gas tokens, no
-payroll batch.** It runs natively because the settlement engine underneath was
-built as a multi-recipient, cross-chain payout splitter.
+editor (Arbitrum), and the photographer (Ethereum) — instantly in real USDC, no
+gas tokens, no payroll batch.** It runs natively because the settlement engine
+underneath was built as a multi-recipient, cross-chain payout splitter.
 
 Three things, all live and demoable with zero keys:
 

@@ -36,10 +36,12 @@ Circle usage + 20% Innovation. Our edges:
 - **Circle usage:** already wired — Arc native-USDC gas, Circle Gateway instant
   path, CCTP whale path. Proven on Arc Testnet.
 - **Innovation:** **cross-chain revenue splitting** is our moat. One $0.05
-  payment fans out to writer (Base), editor (Arbitrum), photographer (Solana),
-  instantly, no gas tokens. No other hackathon team's scaffold does this; ours
-  does it natively because the engine was born a multi-recipient cross-chain
-  payout splitter.
+  payment fans out to writer (Base), editor (Arbitrum), photographer (Ethereum),
+  instantly in real USDC, no gas tokens. No other hackathon team's scaffold does
+  this; ours does it natively because the engine was born a multi-recipient
+  cross-chain payout splitter. (LIVE default split is EVM-only so every leg
+  settles real on Arc — no skipped contributor; Solana payouts route via CCTP and
+  are roadmap, not the default live path.)
 
 ### Target RFB
 

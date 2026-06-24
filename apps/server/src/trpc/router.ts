@@ -50,6 +50,9 @@ export const appRouter = router({
   health: publicProcedure.query(() => ({
     ok: true,
     onchainEnabled: config.onchainEnabled,
+    /** True when every payment path settles REAL USDC on Arc (no simulation). */
+    allReal: liveAgentReady(),
+    liveX402: config.liveX402,
     instantThresholdUsd: formatUsdc6(config.instantThreshold6),
   })),
 
@@ -463,18 +466,49 @@ export const appRouter = router({
         }
       }),
 
-    /** Pay for one call to an "api" piece and return the upstream response. */
+    /**
+     * Pay for one call to an "api" piece and return the upstream response.
+     *
+     * When the live relayer is ready (`liveAgentReady`), this settles for REAL on
+     * Arc: the demo agent pays, the payment is verified on-chain, each contributor
+     * is paid their split in real USDC, then the upstream call is proxied. Only in
+     * zero-key local dev does it fall back to a clearly-labeled simulated split.
+     */
     callApi: publicProcedure
       .input(CallPieceSchema.extend({ pieceId: z.string().min(1) }))
       .mutation(async ({ ctx, input }) => {
         try {
           const piece = ctx.store.getPiece(input.pieceId);
           if (!piece) throw new Error(`No such piece: ${input.pieceId}`);
-          return await callPaidService(ctx.store, piece, {
+          if (piece.kind !== "api") throw new Error(`Piece ${input.pieceId} is not an API service`);
+          if (liveAgentReady()) {
+            const live = await payLiveForPiece(ctx.store, piece, {
+              reader: input.payer,
+              input: input.input,
+            });
+            return {
+              settlementMode: "live" as const,
+              unlock: {
+                pieceId: piece.id,
+                title: piece.title,
+                payer: input.payer ?? null,
+                price6: piece.price6.toString(),
+                contributorCount: piece.contributors.length,
+                chains: [...new Set(piece.contributors.map((c) => c.targetChain))],
+                content: null as string | null,
+                paymentTx: live.paymentTx,
+                explorer: live.explorer,
+                payouts: live.payouts,
+              },
+              upstream: live.upstream ?? { ok: false, status: 0, body: null, error: "no upstream" },
+            };
+          }
+          const sim = await callPaidService(ctx.store, piece, {
             payer: input.payer,
             agentId: input.agentId,
             input: input.input,
           });
+          return { settlementMode: "simulated" as const, ...sim };
         } catch (err) {
           throw toTRPCError(err);
         }
@@ -501,7 +535,13 @@ export const appRouter = router({
         }
       }),
 
-    /** Unlock (pay for) a piece — fans the price out to every contributor. */
+    /**
+     * Legacy/dev unlock — fans the price out to every contributor via the bundled
+     * (simulated, `settlementMode:"simulated"`) path. The real human buy paths are
+     * `sponsoredUnlock` (relayer-sponsored, real on Arc), `payLive` (agent pays
+     * real), and `claimPaid` (wallet pays real); the storefront uses those. Kept
+     * for the zero-key local demo and API consumers that want a mirror receipt.
+     */
     unlock: publicProcedure
       .input(
         z.object({

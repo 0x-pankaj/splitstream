@@ -17,6 +17,7 @@ import { processBulkPayout } from "../services/payoutEngine.js";
 import { createAgentWallet } from "../services/agentTreasury.js";
 import { readTenantBalance6 } from "../services/vault.js";
 import { callPaidService, payForPiece } from "../services/splitEngine.js";
+import { liveAgentReady, payLiveForPiece } from "../services/liveAgent.js";
 import { serializeAgent, serializeAudit, serializePiece } from "../trpc/serialize.js";
 import { formatUsdc6, planPayout, totalDebit6 } from "@arcane/shared";
 import { config } from "../config.js";
@@ -194,6 +195,14 @@ export function createMcpServer(store: Store): McpServer {
       try {
         const piece = store.getPiece(pieceId);
         if (!piece) return fail(new Error(`No such piece: ${pieceId}`));
+        // Settle REAL USDC on Arc when the relayer is live, so an external agent's
+        // payment actually pays the creators on-chain (verifiable tx hashes). Only
+        // in zero-key local dev does this fall back to a labeled simulated split.
+        if (liveAgentReady()) {
+          const live = await payLiveForPiece(store, piece, { reader: payer });
+          return ok({ settlementMode: "live", ...live });
+        }
+        // payForPiece already stamps `settlementMode: "simulated"` on its receipt.
         const result = await payForPiece(store, piece, { payer, agentId });
         return ok(result);
       } catch (err) {
@@ -220,8 +229,14 @@ export function createMcpServer(store: Store): McpServer {
         const piece = store.getPiece(pieceId);
         if (!piece) return fail(new Error(`No such piece: ${pieceId}`));
         if (piece.kind !== "api") return fail(new Error(`Piece ${pieceId} is not an API service`));
+        // Real on-chain settlement when live: pay the API owner(s) real USDC on
+        // Arc, then proxy the upstream call. Simulated (labeled) only in dev.
+        if (liveAgentReady()) {
+          const live = await payLiveForPiece(store, piece, { reader: payer, input });
+          return ok({ settlementMode: "live", ...live });
+        }
         const result = await callPaidService(store, piece, { payer, agentId, input });
-        return ok(result);
+        return ok({ settlementMode: result.unlock.settlementMode, ...result });
       } catch (err) {
         return fail(err);
       }

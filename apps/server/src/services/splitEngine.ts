@@ -64,6 +64,13 @@ export interface PieceUnlockResult {
   contributors: ContributorSettlement[];
   /** The underlying bulk-payout batch (engine's authoritative result). */
   batch: BulkPayoutResult;
+  /**
+   * Whether the contributor legs settled with real on-chain USDC ("live") or a
+   * simulated mirror-mode receipt ("simulated"). The bundled `payForPiece` path
+   * is always "simulated" (real piece settlement runs through `payLiveForPiece` /
+   * the x402 route); this label means a fake tx hash is never mistaken for real.
+   */
+  settlementMode: "live" | "simulated";
   /** Running piece stats after this unlock. */
   pieceUnlocks: number;
   pieceTotalPaid6: string;
@@ -272,6 +279,7 @@ export async function payForPiece(
     content: piece.kind === "api" ? null : piece.content ?? null,
     contributors,
     batch,
+    settlementMode: batch.results[0]?.settlementMode ?? "simulated",
     pieceUnlocks: updated.unlocks,
     pieceTotalPaid6: updated.totalPaid6.toString(),
   };

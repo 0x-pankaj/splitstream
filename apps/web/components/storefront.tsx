@@ -313,7 +313,10 @@ export function FanOut({ unlock }: { unlock: Unlock }) {
         <div className="text-sm font-semibold text-emerald-300">
           Unlocked · {usd(unlock.price6)} split across {unlock.contributorCount} creators on {unlock.chains.length} chains
         </div>
-        <Pill text={`${unlock.batch.instantCount} instant`} tone="emerald" />
+        <span className="flex items-center gap-1.5">
+          {unlock.settlementMode === "simulated" ? <Pill text="simulated (dev)" tone="slate" /> : null}
+          <Pill text={`${unlock.batch.instantCount} instant`} tone="emerald" />
+        </span>
       </div>
       <div className="space-y-2">
         {unlock.contributors.map((c, i) => (
@@ -327,7 +330,7 @@ export function FanOut({ unlock }: { unlock: Unlock }) {
               <span className="mono text-sm font-semibold text-emerald-300">{usd(c.share6)}</span>
               <span className="text-[11px] text-slate-400">{c.settlement.latencyMs}ms</span>
               <PathBadge path={c.settlement.path} />
-              <TxLink hash={c.settlement.destinationTxHash} />
+              {unlock.settlementMode === "live" ? <TxLink hash={c.settlement.destinationTxHash} /> : null}
             </div>
           </div>
         ))}
@@ -1140,8 +1143,36 @@ export function PieceCard({
             <span className="font-semibold text-amber-300">
               Paid ${call.unlock.price6 ? (Number(call.unlock.price6) / 1e6).toFixed(2) : piece.price} · owner paid on {call.unlock.chains.join(", ")}
             </span>
-            <Pill text={call.upstream.ok ? `200 OK` : `error`} tone={call.upstream.ok ? "emerald" : "slate"} />
+            <span className="flex items-center gap-1.5">
+              <Pill
+                text={call.settlementMode === "live" ? "REAL on Arc" : "simulated (dev)"}
+                tone={call.settlementMode === "live" ? "emerald" : "slate"}
+              />
+              <Pill text={call.upstream.ok ? `200 OK` : `error`} tone={call.upstream.ok ? "emerald" : "slate"} />
+            </span>
           </div>
+          {call.settlementMode === "live" ? (
+            <div className="mb-2 space-y-1 text-[11px] text-slate-300">
+              <div>
+                agent paid ·{" "}
+                <a className="mono text-indigo-300 underline decoration-dotted hover:text-indigo-200" target="_blank" rel="noreferrer" href={`${call.unlock.explorer}/tx/${call.unlock.paymentTx}`}>
+                  payment tx ↗
+                </a>
+              </div>
+              {call.unlock.payouts.map((p, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span>→ {p.role} ({p.address.slice(0, 6)}…):</span>
+                  {p.status === "paid" && p.txHash ? (
+                    <a className="mono text-indigo-300 underline decoration-dotted hover:text-indigo-200" target="_blank" rel="noreferrer" href={`${call.unlock.explorer}/tx/${p.txHash}`}>
+                      paid ${(Number(p.share6) / 1e6).toFixed(4)} ↗
+                    </a>
+                  ) : (
+                    <span className="text-slate-500">skipped ({p.reason ?? "non-EVM"})</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : null}
           <pre className="mono max-h-48 overflow-auto rounded-lg border border-slate-700/60 bg-slate-900/60 p-3 text-[11px] text-slate-300">
 {JSON.stringify(call.upstream.body ?? call.upstream.error, null, 2)}
           </pre>

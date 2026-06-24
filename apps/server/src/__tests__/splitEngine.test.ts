@@ -69,9 +69,11 @@ describe("payForPiece (read → pay → cross-chain split)", () => {
     );
     expect(byChain.base!.role).toBe("writer");
     expect(byChain.arbitrum!.role).toBe("editor");
-    expect(byChain.solana!.role).toBe("photographer");
+    // EVM-only split: the photographer is on Ethereum (not Solana), so every leg
+    // settles real USDC on Arc with no skipped contributor.
+    expect(byChain.ethereum!.role).toBe("photographer");
 
-    // Funds landed across three distinct chains.
+    // Funds landed across three distinct EVM chains.
     expect(new Set(result.chains).size).toBe(3);
 
     // Shares sum to exactly the unlock price.
@@ -83,6 +85,10 @@ describe("payForPiece (read → pay → cross-chain split)", () => {
       expect(c.settlement.status).toBe("settled");
       expect(c.settlement.destinationTxHash).toBeTruthy();
     }
+
+    // The bundled path is mirror-mode here (zero keys), so the receipt is
+    // explicitly labeled simulated — a fake tx hash can never read as real.
+    expect(result.settlementMode).toBe("simulated");
   });
 
   it("increments the piece's traction stats on each unlock", async () => {

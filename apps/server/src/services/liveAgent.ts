@@ -89,7 +89,7 @@ export function liveAgentReady(): boolean {
 export async function payLiveForPiece(
   store: Store,
   piece: Piece,
-  opts: { reader?: string } = {},
+  opts: { reader?: string; input?: Record<string, unknown> } = {},
 ): Promise<LiveAgentResult> {
   if (!config.liveX402) throw new Error("LIVE_X402 is not enabled");
   if (!relayerAccount || !relayerWallet) throw new Error("relayer wallet not configured");
@@ -140,7 +140,7 @@ export async function payLiveForPiece(
       .map((p) => ({ role: p.role, address: p.address, share6: BigInt(p.share6), txHash: p.txHash! })),
     at: new Date().toISOString(),
   });
-  const upstream = piece.kind === "api" ? await proxyUpstream(piece) : undefined;
+  const upstream = piece.kind === "api" ? await proxyUpstream(piece, opts.input) : undefined;
 
   // When a human sponsored this unlock, key the entitlement to their browser id
   // so they keep access on return visits (the on-chain payer is the relayer/agent,
@@ -239,7 +239,18 @@ export async function sponsoredUnlock(
     };
   }
 
-  // Mirror-mode fallback: simulated settlement, same remembered entitlement.
+  // No silent fakes in live mode: if we INTEND to be live (LIVE_X402 is set) but
+  // the relayer/demo-agent wallet isn't fully wired, refuse rather than quietly
+  // settling a simulated payment that would read as real. Mirror-mode simulation
+  // is ONLY for zero-key local dev (LIVE_X402 unset).
+  if (config.liveX402) {
+    throw new Error(
+      "LIVE_X402 is set but the relayer/demo-agent wallet is not fully configured — refusing to simulate a payment in live mode",
+    );
+  }
+
+  // Mirror-mode fallback (zero-key local dev): simulated settlement, clearly
+  // labeled (mode: "simulated"), with the same remembered entitlement.
   const sim = await payForPiece(store, piece, { payer: reader });
   return {
     mode: "simulated",

@@ -115,7 +115,46 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
 
 ## Build State (UPDATE THIS LAST, EVERY SESSION)
 
-**Last updated:** session 4 (… + RFB-06 metrics on screen, real-only).
+**Last updated:** session 5 (nothing-simulated hardening + EVM split + Canteen RPC).
+
+**Nothing-simulated hardening + EVM-only live split + Canteen Arc node (session 5):**
+- **Directive:** everything REAL on Arc testnet, nothing simulated; reframe the
+  cross-chain split to EVM (drop Solana skip); recruit real creators; real human
+  traction; run `arc-canteen update-product`.
+- **Every payment path now settles real-or-labeled.** `pieces.callApi` (tRPC) and
+  the MCP tools `pay_for_piece` / `call_api` now route through `payLiveForPiece`
+  when `liveAgentReady()` (real USDC on Arc) and only fall back to a clearly
+  **`settlementMode:"simulated"`**-labeled mirror receipt in zero-key local dev.
+  `payForPiece` stamps `settlementMode` on its receipt; `sponsoredUnlock` THROWS
+  (no silent fake) if `LIVE_X402` is set but the relayer/agent wallet is missing.
+  Web: `FanOut` + the API `call` receipt show a "REAL on Arc" / "simulated (dev)"
+  badge and link the explorer ONLY for live settlements. `/health` + tRPC
+  `health` expose `allReal` (true when every path settles real).
+- **EVM-only live split (no skipped leg).** Seed piece photographer moved
+  solana→**ethereum** (`seed.ts`); the 3-way split (writer Base / editor Arbitrum
+  / photographer Ethereum) settles 3/3 real on Arc. Solana via CCTP = documented
+  roadmap. README / CLAUDE truthed-up. Seed creator addresses are env-overridable
+  (`SEED_WRITER/EDITOR/PHOTOGRAPHER_ADDRESS`) so recruited creators' wallets show
+  on the real leaderboard with zero code change.
+- **Canteen Arc node.** `apps/server/.env` `ARC_TESTNET_RPC_URL` → the Canteen
+  per-user node (`rpc.testnet.arc-node.thecanteenapp.com/v1/swrm_…`, secret —
+  gitignored). Confirmed same chain id 5042002 (`eth_chainId` on both RPCs) so
+  relayer/agent balances are identical; relayer funded ~14.1 USDC, reachable.
+- **PROVEN LIVE on the Canteen node (real USDC, EVM 3/3):** `payLiveForPiece` on
+  the demo piece → payment tx `0xed421fb1…` + writer `0xbf011d28…` / editor
+  `0x9188963b…` / photographer `0x0c755170…`, writer payout receipt confirmed
+  `status 0x1`, from relayer `0x8984…7154c`. No leg skipped.
+- **`arc-canteen update-product` submitted** (was 4 weeks overdue) describing the
+  100%-real build + the on-chain proof. Traction logging (`update-traction`)
+  deferred until real users are onboarded (user: focus real human traction).
+- Tests **71/71** green; full workspace typecheck + web build (8 routes) clean.
+- **OPEN / next (operational, user-driven):** redeploy the API so the live URL
+  runs the new real-everything code — `git push` + `railway up`, and set
+  `ARC_TESTNET_RPC_URL` (Canteen node) as a Railway secret so the deployed API
+  uses the event node. Keep the relayer topped up from `faucet.circle.com` (Arc
+  Testnet) for sustained live traction. Then share the link + run real unlocks.
+
+**Earlier — session 4 (… + RFB-06 metrics on screen, real-only).**
 
 **RFB-06 metrics on screen, sourced 100% from REAL Arc settlements (session 4):**
 - **Why:** RFB-06's judged traction metric is "Creators earning · total creator
