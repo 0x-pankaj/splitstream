@@ -603,6 +603,20 @@ export const appRouter = router({
         return { ok: true };
       }),
 
+    /**
+     * Admin: remove on-chain payouts to specific addresses from the leaderboard
+     * ledger (e.g. demo placeholder creators). Requires a publisher API key.
+     */
+    purgeCreators: protectedProcedure
+      .input(z.object({ addresses: z.array(z.string().min(1)).min(1).max(50) }))
+      .mutation(({ ctx, input }) => {
+        try {
+          return ctx.store.purgeOnchainPayouts(input.addresses);
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
     stats: publicProcedure.query(({ ctx }) => {
       const pieces = ctx.store.listPieces();
       let totalUnlocks = 0;

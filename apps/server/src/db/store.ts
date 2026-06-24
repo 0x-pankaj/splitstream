@@ -457,6 +457,27 @@ export class Store {
   }
 
   /** Real on-chain settlements, newest first. */
+  /**
+   * Admin cleanup: drop every on-chain payout to the given addresses from the
+   * settlement ledger (e.g. removing demo placeholder creators). Settlements left
+   * with no payouts are removed entirely. The change persists on the next
+   * snapshot flush. Returns how much was removed.
+   */
+  purgeOnchainPayouts(addresses: string[]): { settlementsRemoved: number; payoutsRemoved: number } {
+    const block = new Set(addresses.map((a) => a.toLowerCase()));
+    let payoutsRemoved = 0;
+    const kept: OnchainSettlement[] = [];
+    for (const s of this.onchainSettlements) {
+      const before = s.payouts.length;
+      s.payouts = s.payouts.filter((p) => !block.has(p.address.toLowerCase()));
+      payoutsRemoved += before - s.payouts.length;
+      if (s.payouts.length > 0) kept.push(s);
+    }
+    const settlementsRemoved = this.onchainSettlements.length - kept.length;
+    this.onchainSettlements = kept;
+    return { settlementsRemoved, payoutsRemoved };
+  }
+
   listOnchainSettlements(limit = 10): OnchainSettlement[] {
     return [...this.onchainSettlements].reverse().slice(0, limit);
   }
