@@ -115,7 +115,61 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
 
 ## Build State (UPDATE THIS LAST, EVERY SESSION)
 
-**Last updated:** session 5 (nothing-simulated hardening + EVM split + Canteen RPC).
+**Last updated:** session 6 (real-user production layer — creator accounts +
+Circle wallets + hardening).
+
+**Real creators, real wallets, real earnings (session 6 — the production layer):**
+- **Why:** deadline extended to **July 6 2026**; judges now weight "real users ·
+  payments actually flowing · projects that persist." The gap from strong-demo to
+  real product was self-serve creator onboarding — until now contributors were
+  raw/seeded addresses. This session makes a creator sign up, get a real custodial
+  USDC wallet on Arc, earn, and withdraw. Answers the user's Circle question:
+  **pre-create wallets is the keystone.**
+- **Circle Developer-Controlled Wallets** (`services/circleWallets.ts`, new dep
+  `@circle-fin/developer-controlled-wallets`): pre-create a pool on `ARC-TESTNET`
+  (`ensureWalletPool`, warmed at boot), assign one per creator on signup
+  (`provisionCreatorWallet` → pop pool + `updateWallet({name,refId})`, create-on-
+  demand if dry), `getWalletBalance6`, `createWithdrawal`. Gated on `CIRCLE_API_KEY`
+  + `CIRCLE_ENTITY_SECRET` + `CIRCLE_WALLET_SET_ID`; **zero-key dev → a labeled
+  `local-dev` wallet** so the flow is fully demoable. Adds **Circle Wallets** to
+  the Circle-usage score (was only Gateway/CCTP/x402).
+- **Creator accounts (email + OTP)** (`services/creatorAuth.ts`, `email.ts`):
+  `requestOtp` (hashed 6-digit code, 10-min TTL, console fallback with zero keys)
+  → `verifyOtp` creates the creator + assigns a wallet + an auto publisher tenant
+  + a 30-day session. New store maps (`creators`/`creatorSessions`/`otpChallenges`/
+  `circleWalletPool`), all persisted in the snapshot. Session auth via a new
+  `x-creator-token` header threaded through the tRPC context.
+- **`creator.*` tRPC router**: `requestOtp`, `verifyOtp`, `me`, `wallet`
+  (address+live balance), `earnings` (real on-chain rollup via new
+  `services/creatorEarnings.ts`), `myPieces`, `publish` (contributors may be a
+  registered creator by handle/email — resolved to their wallet — or BYO address),
+  `withdraw`, `setPayoutAddress`. **No engine change**: a Circle wallet is an EVM
+  address that drops straight into the existing contributor list (paid on Arc like
+  the seed creators).
+- **Web**: `/creator/login` (email→code) + `/creator` dashboard (wallet + Arc
+  explorer link, total real earnings, withdraw, one-screen publish form, recent
+  payouts, my pieces) + an "Earn as a creator" nav entry.
+- **W2 — relayer safety**: `liveRelayerStatus()` (cached balance) + a hard
+  pre-settle guard in `payLiveForPiece` that fails with a faucet hint instead of a
+  cryptic revert; surfaced on `/health`, `traction.stats`, and a storefront
+  low-balance banner. Default content buy already settles real on prod
+  (`sponsoredUnlock`); simulated stays only as the zero-key dev fallback.
+- **W3 — hardening**: per-IP rate limiting (`middleware/rateLimit.ts`; global +
+  /trpc + /api/v1 + tighter signup), configurable CORS allowlist (`CORS_ORIGINS`;
+  open by default for the embeddable widget), **AES-256-GCM snapshot encryption at
+  rest** (`SNAPSHOT_ENC_KEY`, transparent + backward-compatible in `snapshot.ts`),
+  and a GitHub Actions CI (`.github/workflows/ci.yml`: typecheck + test + forge).
+- **W4 — agentic**: reading agent already walks the live catalog + settles real;
+  added `scripts/a2a-demo.ts` (`a2a:demo`) — a buyer agent pays a seller "creator
+  agent" whose Circle wallet receives the USDC (agent-pays-agent into a real wallet).
+- **Tests 84/84** (+13: creator OTP/login/session, earnings rollup, wallet pool,
+  tRPC publish flow, snapshot+encryption round-trip). Typecheck + web build (10
+  routes) + 28 Foundry tests all clean. **New env documented in `.env.example`.**
+- **OPEN / next (user-driven):** create a Circle wallet set + register the entity
+  secret, set `CIRCLE_*` + `EMAIL_API_KEY` + `SNAPSHOT_ENC_KEY` as Railway secrets,
+  redeploy API + Vercel web, then onboard real creators and share the link.
+
+**Earlier — session 5 (nothing-simulated hardening + EVM split + Canteen RPC).**
 
 **Nothing-simulated hardening + EVM-only live split + Canteen Arc node (session 5):**
 - **Directive:** everything REAL on Arc testnet, nothing simulated; reframe the

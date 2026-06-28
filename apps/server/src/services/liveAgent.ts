@@ -38,6 +38,14 @@ const LOW_BALANCE_6 = 1_000_000n; // $1.00
 /** Native-USDC top-up amount (18dp) = $3.00 — refills to a healthy buffer. */
 const TOPUP_18 = 3_000_000_000_000_000_000n;
 
+/** Advisory "relayer is running low" threshold (6dp) — surfaced as a banner. */
+const RELAYER_LOW_6 = 1_000_000n; // $1.00
+/** Small gas/headroom buffer required above a piece's price before settling. */
+const RELAYER_GAS_BUFFER_6 = 100_000n; // $0.10
+/** Cache the relayer balance so the polled traction/health reads don't hammer RPC. */
+const RELAYER_BAL_TTL_MS = 30_000;
+let _relayerBalCache: { at: number; bal6: bigint } | undefined;
+
 let _agent: Account | undefined;
 let _agentWallet: WalletClient | undefined;
 
@@ -81,6 +89,35 @@ export function liveAgentReady(): boolean {
   return config.liveX402 && Boolean(relayerAccount && relayerWallet && config.demoAgentPrivateKey);
 }
 
+/** Relayer USDC balance (6dp), cached for RELAYER_BAL_TTL_MS to spare the RPC. */
+async function relayerUsdc6(now = Date.now()): Promise<bigint> {
+  if (!relayerAccount) return 0n;
+  if (_relayerBalCache && now - _relayerBalCache.at < RELAYER_BAL_TTL_MS) return _relayerBalCache.bal6;
+  const bal6 = await usdc6(relayerAccount.address);
+  _relayerBalCache = { at: now, bal6 };
+  return bal6;
+}
+
+export interface RelayerStatus {
+  /** True when live settlement is wired (relayer + demo agent + LIVE_X402). */
+  ready: boolean;
+  /** Relayer USDC balance on Arc, as a display string. */
+  balanceUSDC: string;
+  /** True when the balance has dropped near empty — top up at the Circle faucet. */
+  low: boolean;
+}
+
+/**
+ * Live-settlement health: is the relayer funded enough to keep paying creators?
+ * Cheap (cached) so the storefront can poll it and warn before the URL silently
+ * fails. Returns ready:false in mirror mode (no relayer) — there's nothing to warn.
+ */
+export async function liveRelayerStatus(now = Date.now()): Promise<RelayerStatus> {
+  if (!liveAgentReady()) return { ready: false, balanceUSDC: "0", low: false };
+  const bal6 = await relayerUsdc6(now).catch(() => 0n);
+  return { ready: true, balanceUSDC: formatUsdc6(bal6), low: bal6 < RELAYER_LOW_6 };
+}
+
 /**
  * Pay for a piece on-chain as the autonomous demo agent. Returns the real Arc
  * tx hashes for the payment and each contributor payout.
@@ -99,6 +136,15 @@ export async function payLiveForPiece(
   if (!relayerAccount || !relayerWallet) throw new Error("relayer wallet not configured");
   const { account: agent, wallet } = agentWallet();
   const payTo = relayerAccount.address;
+
+  // 0) Fail fast with an actionable message if the relayer can't cover this
+  // settlement (it funds agent top-ups + gas). Beats a cryptic on-chain revert.
+  const relayerBal6 = await relayerUsdc6();
+  if (relayerBal6 < piece.price6 + RELAYER_GAS_BUFFER_6) {
+    throw new Error(
+      "Relayer is out of Arc test USDC — top up at https://faucet.circle.com (Arc Testnet) before settling",
+    );
+  }
 
   // 1) Top the agent up from the relayer if needed (real tx, only when low).
   if ((await usdc6(agent.address)) < LOW_BALANCE_6) {
@@ -129,6 +175,8 @@ export async function payLiveForPiece(
   // 4) Pay each contributor their split in real USDC on Arc.
   const shares6 = computeSplit(piece.price6, piece.contributors);
   const payouts = await payContributorsOnArc(piece.contributors, shares6);
+  // This settlement moved relayer funds (top-up + gas) — refresh on next read.
+  _relayerBalCache = undefined;
 
   // 5) Record traction (counter + verifiable on-chain ledger); proxy upstream.
   store.recordUnlock(piece.id, piece.price6);

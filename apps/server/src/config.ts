@@ -35,6 +35,31 @@ export interface AppConfig {
   complianceGuardAddress: Address | undefined;
   platformFeeWallet: Address | undefined;
   circleKitKey: string | undefined;
+  /**
+   * Circle Developer-Controlled Wallets — used to pre-create a pool of custodial
+   * USDC wallets on Arc and assign one to each creator on signup, so a creator can
+   * receive and withdraw their split with just an email (no MetaMask/seed phrase).
+   * Undefined → wallet provisioning is disabled and the creator flow falls back to
+   * a clearly-labeled local dev wallet (mirror mode) or a bring-your-own address.
+   */
+  circleWallets:
+    | { apiKey: string; entitySecret: string; walletSetId: string }
+    | undefined;
+  /**
+   * Transactional email for sending creator login one-time codes. When unset, the
+   * OTP is logged to stdout so the email→OTP flow still works with zero keys in
+   * local dev (mirror-mode discipline).
+   */
+  email: { apiKey: string; from: string } | undefined;
+  /**
+   * Optional AES-256-GCM key (any string; hashed to 32 bytes) for encrypting the
+   * persisted store snapshot at rest — so upstream API credentials, creator
+   * emails, and API keys aren't stored in cleartext in D1/sqlite. Unset → snapshot
+   * is plaintext (and existing plaintext snapshots remain readable either way).
+   */
+  snapshotEncKey: string | undefined;
+  /** Comma-separated allowed browser origins for credentialed/admin CORS. */
+  corsOrigins: string[];
   /** Autonomous demo-agent key that pays real USDC on Arc from the storefront. */
   demoAgentPrivateKey: Hex | undefined;
   /**
@@ -102,6 +127,19 @@ export function loadConfig(): AppConfig {
         }
       : undefined;
 
+  const circleApiKey = env("CIRCLE_API_KEY");
+  const circleEntitySecret = env("CIRCLE_ENTITY_SECRET");
+  const circleWalletSetId = env("CIRCLE_WALLET_SET_ID");
+  const circleWallets =
+    circleApiKey && circleEntitySecret && circleWalletSetId
+      ? { apiKey: circleApiKey, entitySecret: circleEntitySecret, walletSetId: circleWalletSetId }
+      : undefined;
+
+  const emailApiKey = env("EMAIL_API_KEY");
+  const email = emailApiKey
+    ? { apiKey: emailApiKey, from: env("EMAIL_FROM") ?? "SplitStream <login@splitstream.app>" }
+    : undefined;
+
   return {
     port: Number(env("PORT") ?? 8787),
     databasePath: env("DATABASE_PATH") ?? "./data/arcane.sqlite",
@@ -112,6 +150,13 @@ export function loadConfig(): AppConfig {
     complianceGuardAddress: env("COMPLIANCE_GUARD_ADDRESS") as Address | undefined,
     platformFeeWallet: env("PLATFORM_FEE_WALLET") as Address | undefined,
     circleKitKey: env("CIRCLE_KIT_KEY"),
+    circleWallets,
+    email,
+    snapshotEncKey: env("SNAPSHOT_ENC_KEY"),
+    corsOrigins: (env("CORS_ORIGINS") ?? "")
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean),
     demoAgentPrivateKey: env("DEMO_AGENT_PRIVATE_KEY") as Hex | undefined,
     r2,
     instantThreshold6: thresholdFromEnv(),

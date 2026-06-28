@@ -103,12 +103,12 @@ export default function LibraryPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
       <header className="mb-6 flex items-center justify-between">
-        <Link href="/" className="text-sm font-semibold tracking-tight text-slate-100">SplitStream</Link>
-        <Link href="/" className="text-xs text-slate-400 hover:text-slate-200">← storefront</Link>
+        <Link href="/" className="text-sm font-semibold tracking-tight text-ink">SplitStream</Link>
+        <Link href="/" className="text-xs text-muted hover:text-ink">← storefront</Link>
       </header>
 
-      <h1 className="text-xl font-semibold text-slate-100">My purchases</h1>
-      <p className="mt-1 text-sm text-slate-400">
+      <h1 className="text-xl font-semibold text-ink">My purchases</h1>
+      <p className="mt-1 text-sm text-muted">
         Everything you&apos;ve unlocked. Saved to your account on the server — bring it to a new device with a
         wallet signature or a recovery code.
       </p>
@@ -116,21 +116,21 @@ export default function LibraryPage() {
       {/* Portability controls */}
       <div className="mt-5 space-y-3">
         <div className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm text-slate-300">
-            <span className="font-semibold text-slate-100">No-wallet backup</span>{" "}
-            <span className="text-slate-400">— get a code to restore on another device.</span>
+          <div className="text-sm text-ink3">
+            <span className="font-semibold text-ink">No-wallet backup</span>{" "}
+            <span className="text-muted">— get a code to restore on another device.</span>
           </div>
           <button onClick={backUp} disabled={busy === "issue"}
-            className="w-full rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-700/40 disabled:opacity-60 sm:w-auto">
+            className="w-full rounded-xl border border-line3 bg-surface px-4 py-2.5 text-sm font-semibold text-ink hover:bg-chip disabled:opacity-60 sm:w-auto">
             {busy === "issue" ? "Generating…" : "Back up to a code"}
           </button>
         </div>
 
         {code ? (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm">
-            <div className="text-emerald-300">Your recovery code — keep it private:</div>
-            <div className="mono mt-1 text-lg font-semibold tracking-wider text-slate-100">{code}</div>
-            <div className="mt-1 text-xs text-slate-400">Enter it under “Restore from a code” on another device.</div>
+          <div className="rounded-xl px-4 py-3 text-sm" style={{ border: "1px solid rgba(14,157,110,0.25)", background: "rgba(14,157,110,0.1)" }}>
+            <div className="text-green">Your recovery code — keep it private:</div>
+            <div className="mono mt-1 text-lg font-semibold tracking-wider text-ink">{code}</div>
+            <div className="mt-1 text-xs text-muted">Enter it under “Restore from a code” on another device.</div>
           </div>
         ) : null}
 
@@ -139,36 +139,37 @@ export default function LibraryPage() {
             value={redeemInput}
             onChange={(e) => setRedeemInput(e.target.value)}
             placeholder="SS-XXXX-XXXX"
-            className="mono w-full flex-1 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2.5 text-sm uppercase tracking-wider text-slate-200"
+            className="mono w-full flex-1 rounded-lg border border-line bg-surface px-3 py-2.5 text-sm uppercase tracking-wider text-ink2"
           />
           <button onClick={redeem} disabled={busy === "redeem" || !redeemInput.trim()}
-            className="w-full rounded-xl bg-indigo-500/90 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-60 sm:w-auto">
+            style={{ background: "#EE5126" }}
+            className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold text-white hover:bg-brandhover disabled:opacity-60 sm:w-auto">
             {busy === "redeem" ? "Restoring…" : "Restore from a code"}
           </button>
         </div>
 
         {walletAvailable ? (
           <button onClick={restoreWallet} disabled={busy === "wallet"}
-            className="w-full rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-2.5 text-sm font-semibold text-indigo-300 hover:bg-indigo-400/20 disabled:opacity-60">
+            className="w-full rounded-xl border border-line3 bg-surface px-4 py-2.5 text-sm font-semibold text-ink hover:bg-chip disabled:opacity-60">
             {busy === "wallet" ? "Check your wallet…" : "🔑 Add purchases from a wallet"}
           </button>
         ) : null}
 
-        {note ? <div className="text-xs text-emerald-300">{note}</div> : null}
-        {error ? <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div> : null}
+        {note ? <div className="text-xs text-green">{note}</div> : null}
+        {error ? <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div> : null}
       </div>
 
       {/* The library */}
       <div className="mt-8">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-300">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-ink3">
           Owned {items.length > 0 ? `· ${items.length}` : ""}
         </h2>
         {loading ? (
-          <div className="text-sm text-slate-400">Loading…</div>
+          <div className="text-sm text-muted">Loading…</div>
         ) : items.length === 0 ? (
-          <div className="card p-6 text-sm text-slate-400">
+          <div className="card p-6 text-sm text-muted">
             Nothing here yet. Unlock a piece on the{" "}
-            <Link href="/" className="text-indigo-300 hover:text-indigo-200">storefront</Link>, or restore with a code/wallet above.
+            <Link href="/" className="text-brand hover:text-brandhover">storefront</Link>, or restore with a code/wallet above.
           </div>
         ) : (
           <div className="space-y-2">
@@ -178,10 +179,10 @@ export default function LibraryPage() {
                   <div className="flex items-center gap-2">
                     <Pill text={p.kind} tone={p.kind === "api" ? "amber" : "slate"} />
                   </div>
-                  <div className="mt-1 truncate font-semibold text-slate-100">{p.title}</div>
-                  {p.preview ? <div className="truncate text-xs text-slate-400">{p.preview}</div> : null}
+                  <div className="mt-1 truncate font-semibold text-ink">{p.title}</div>
+                  {p.preview ? <div className="truncate text-xs text-muted">{p.preview}</div> : null}
                 </div>
-                <Link href={`/piece/${p.pieceId}`} className="shrink-0 text-sm font-medium text-indigo-300 hover:text-indigo-200">
+                <Link href={`/piece/${p.pieceId}`} className="shrink-0 text-sm font-medium text-brand hover:text-brandhover">
                   Open →
                 </Link>
               </div>

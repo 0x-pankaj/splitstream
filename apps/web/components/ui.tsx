@@ -1,4 +1,5 @@
-/** Small presentational building blocks for the CFO console. */
+/** Small presentational building blocks, themed to the SplitStream design system
+ *  (warm cream surfaces, orange brand, real-USDC green). */
 
 "use client";
 
@@ -19,14 +20,14 @@ export function CopyField({ label, value }: { label: string; value: string }) {
   };
   return (
     <div>
-      {label ? <div className="text-[11px] uppercase tracking-wider text-slate-400">{label}</div> : null}
+      {label ? <div className="text-[11px] uppercase tracking-wider text-faint">{label}</div> : null}
       <div className="mt-1 flex items-center gap-2">
-        <code className="mono flex-1 truncate rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200">
+        <code className="mono flex-1 truncate rounded-md border border-line bg-surface-2 px-2 py-1.5 text-xs text-ink2">
           {value}
         </code>
         <button
           onClick={copy}
-          className="shrink-0 rounded-md border border-slate-600 px-2 py-1.5 text-xs hover:bg-slate-700/40"
+          className="shrink-0 rounded-md border border-line3 px-2 py-1.5 text-xs text-ink hover:bg-chip"
         >
           {copied ? "Copied" : "Copy"}
         </button>
@@ -38,9 +39,9 @@ export function CopyField({ label, value }: { label: string; value: string }) {
 /** A small labeled pill used for status/labels. */
 export function Pill({ text, tone = "slate" }: { text: string; tone?: "slate" | "amber" | "emerald" }) {
   const tones: Record<string, { bg: string; fg: string }> = {
-    slate: { bg: "rgba(148,163,184,0.14)", fg: "#94a3b8" },
-    amber: { bg: "rgba(245,158,11,0.14)", fg: "#fbbf24" },
-    emerald: { bg: "rgba(16,185,129,0.14)", fg: "#34d399" },
+    slate: { bg: "#f1ece3", fg: "#6e675c" },
+    amber: { bg: "rgba(238,81,38,0.1)", fg: "#c2410c" },
+    emerald: { bg: "rgba(14,157,110,0.1)", fg: "#0e7a56" },
   };
   const c = tones[tone]!;
   return (
@@ -63,11 +64,11 @@ export function Stat({
 }) {
   return (
     <div className="card p-5">
-      <div className="text-[11px] uppercase tracking-wider text-slate-400">{label}</div>
-      <div className="mt-2 text-2xl font-semibold" style={accent ? { color: accent } : undefined}>
+      <div className="text-[11px] uppercase tracking-wider text-faint">{label}</div>
+      <div className="font-display mt-2 text-2xl font-semibold tracking-tight" style={accent ? { color: accent } : { color: "#17140f" }}>
         {value}
       </div>
-      {sub ? <div className="mt-1 text-xs text-slate-400">{sub}</div> : null}
+      {sub ? <div className="mt-1 text-xs text-muted">{sub}</div> : null}
     </div>
   );
 }
@@ -78,9 +79,9 @@ export function PathBadge({ path }: { path: "instant" | "whale" }) {
     <span
       className="badge"
       style={{
-        background: instant ? "rgba(16,185,129,0.14)" : "rgba(245,158,11,0.14)",
-        color: instant ? "#34d399" : "#fbbf24",
-        border: `1px solid ${instant ? "rgba(16,185,129,0.35)" : "rgba(245,158,11,0.35)"}`,
+        background: instant ? "rgba(14,157,110,0.1)" : "rgba(238,81,38,0.1)",
+        color: instant ? "#0e7a56" : "#c2410c",
+        border: `1px solid ${instant ? "rgba(14,157,110,0.25)" : "rgba(238,81,38,0.25)"}`,
       }}
     >
       {instant ? "⚡ Instant · Gateway" : "🐋 Whale · CCTP"}
@@ -88,9 +89,18 @@ export function PathBadge({ path }: { path: "instant" | "whale" }) {
   );
 }
 
+const CHAIN_TINT: Record<string, string> = {
+  base: "#2563eb",
+  arbitrum: "#0e7490",
+  ethereum: "#6366f1",
+  solana: "#059669",
+};
+
 export function ChainBadge({ chain }: { chain: string }) {
+  const tint = CHAIN_TINT[chain] ?? "#8a8378";
   return (
-    <span className="badge" style={{ background: "rgba(99,102,241,0.14)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)" }}>
+    <span className="badge" style={{ background: "#f1ece3", color: "#6e675c" }}>
+      <span style={{ width: 6, height: 6, borderRadius: 999, background: tint, display: "inline-block" }} />
       {chain}
     </span>
   );
@@ -102,9 +112,9 @@ export function ModeBadge({ mode }: { mode: "live" | "simulated" }) {
     <span
       className="badge"
       style={{
-        background: live ? "rgba(16,185,129,0.14)" : "rgba(148,163,184,0.14)",
-        color: live ? "#34d399" : "#94a3b8",
-        border: `1px solid ${live ? "rgba(16,185,129,0.35)" : "rgba(148,163,184,0.3)"}`,
+        background: live ? "rgba(14,157,110,0.1)" : "#f1ece3",
+        color: live ? "#0e7a56" : "#6e675c",
+        border: `1px solid ${live ? "rgba(14,157,110,0.25)" : "#dad3c7"}`,
       }}
     >
       {live ? "LIVE Arc Testnet" : "Simulated"}
@@ -113,11 +123,12 @@ export function ModeBadge({ mode }: { mode: "live" | "simulated" }) {
 }
 
 export function TxLink({ hash }: { hash: string | null }) {
-  if (!hash) return <span className="text-slate-500">—</span>;
+  if (!hash) return <span className="text-faint2">—</span>;
   const short = `${hash.slice(0, 8)}…${hash.slice(-6)}`;
   return (
     <a
-      className="mono text-indigo-300 hover:text-indigo-200 underline decoration-dotted"
+      className="mono underline decoration-dotted hover:opacity-80"
+      style={{ color: "#2563eb" }}
       href={`${ARC_TESTNET.explorer}/tx/${hash}`}
       target="_blank"
       rel="noreferrer"
@@ -131,7 +142,7 @@ export function Section({ title, children, right }: { title: string; children: R
   return (
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">{title}</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink3">{title}</h2>
         {right}
       </div>
       {children}

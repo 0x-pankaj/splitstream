@@ -254,19 +254,19 @@ export default function Dashboard() {
             title="New Bulk Payout"
             right={
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <button onClick={() => setRows(SAMPLE_BATCH)} className="rounded-md border border-slate-600 px-2 py-1 hover:bg-slate-700/40">
+                <button onClick={() => setRows(SAMPLE_BATCH)} className="rounded-md border border-line3 px-2 py-1 hover:bg-chip">
                   Load sample
                 </button>
                 {recipients.length > 0 ? (
-                  <button onClick={loadPayees} className="rounded-md border border-slate-600 px-2 py-1 hover:bg-slate-700/40">
+                  <button onClick={loadPayees} className="rounded-md border border-line3 px-2 py-1 hover:bg-chip">
                     Load my payees
                   </button>
                 ) : null}
-                <button onClick={addRow} className="rounded-md border border-slate-600 px-2 py-1 hover:bg-slate-700/40">
+                <button onClick={addRow} className="rounded-md border border-line3 px-2 py-1 hover:bg-chip">
                   + Row
                 </button>
                 {rows.length > 0 ? (
-                  <button onClick={clearRows} className="rounded-md border border-slate-600 px-2 py-1 text-slate-400 hover:bg-slate-700/40">
+                  <button onClick={clearRows} className="rounded-md border border-line3 px-2 py-1 text-muted hover:bg-chip">
                     Clear
                   </button>
                 ) : null}
@@ -278,18 +278,18 @@ export default function Dashboard() {
                 const validAddr = isAddressValidForChain(r.recipientAddress, r.targetChain);
                 const status = !validAddr ? "invalid" : isVetted(r) ? "vetted" : "unvetted";
                 return (
-                  <div key={i} className="grid grid-cols-2 items-center gap-2 rounded-lg border border-slate-800 p-2 sm:grid-cols-12 sm:rounded-none sm:border-0 sm:p-0">
+                  <div key={i} className="grid grid-cols-2 items-center gap-2 rounded-lg border border-line p-2 sm:grid-cols-12 sm:rounded-none sm:border-0 sm:p-0">
                     <div className="col-span-2 flex items-center gap-2 sm:col-span-5">
                       <RowStatusDot status={status} />
                       <input
-                        className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900/60 px-2 py-2 text-xs mono sm:py-1.5"
+                        className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-2 text-xs mono sm:py-1.5"
                         placeholder="recipient address"
                         value={r.recipientAddress}
                         onChange={(e) => updateRow(i, { recipientAddress: e.target.value })}
                       />
                     </div>
                     <select
-                      className="col-span-1 rounded-md border border-slate-700 bg-slate-900/60 px-2 py-2 text-xs sm:col-span-2 sm:py-1.5"
+                      className="col-span-1 rounded-md border border-line bg-surface px-2 py-2 text-xs sm:col-span-2 sm:py-1.5"
                       value={r.targetChain}
                       onChange={(e) => updateRow(i, { targetChain: e.target.value as Row["targetChain"] })}
                     >
@@ -298,24 +298,24 @@ export default function Dashboard() {
                       ))}
                     </select>
                     <input
-                      className={`col-span-1 rounded-md border bg-slate-900/60 px-2 py-2 text-xs text-right sm:col-span-2 sm:py-1.5 ${isAmountValid(r.amountUSDC) ? "border-slate-700" : "border-red-500/50"}`}
+                      className={`col-span-1 rounded-md border bg-surface px-2 py-2 text-xs text-right sm:col-span-2 sm:py-1.5 ${isAmountValid(r.amountUSDC) ? "border-line" : "border-red-400"}`}
                       value={r.amountUSDC}
                       onChange={(e) => updateRow(i, { amountUSDC: e.target.value })}
                     />
                     <select
-                      className="col-span-1 rounded-md border border-slate-700 bg-slate-900/60 px-2 py-2 text-xs sm:col-span-2 sm:py-1.5"
+                      className="col-span-1 rounded-md border border-line bg-surface px-2 py-2 text-xs sm:col-span-2 sm:py-1.5"
                       value={r.currencyCode}
                       onChange={(e) => updateRow(i, { currencyCode: e.target.value as Row["currencyCode"] })}
                     >
                       <option value="USD">USD</option>
                       <option value="EUR">EUR→EURC</option>
                     </select>
-                    <button onClick={() => removeRow(i)} className="col-span-1 text-right text-slate-500 hover:text-red-400 sm:text-center">✕</button>
+                    <button onClick={() => removeRow(i)} className="col-span-1 text-right text-faint hover:text-red-600 sm:text-center">✕</button>
                   </div>
                 );
               })}
               {rows.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-700 px-3 py-6 text-center text-xs text-slate-500">
+                <div className="rounded-lg border border-dashed border-line px-3 py-6 text-center text-xs text-faint">
                   No payouts yet — add a row, load your payees, or import a CSV below.
                 </div>
               ) : null}
@@ -334,7 +334,7 @@ export default function Dashboard() {
 
             {/* Unvetted-recipient guard */}
             {unvetted.length > 0 ? (
-              <div className="mt-4 flex flex-col gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-4 flex flex-col gap-2 rounded-lg px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between" style={{ border: "1px solid rgba(238,81,38,0.25)", background: "rgba(238,81,38,0.1)", color: "#C2410C" }}>
                 <span>
                   ⚠ {unvetted.length} recipient{unvetted.length === 1 ? "" : "s"} in this batch{" "}
                   {unvetted.length === 1 ? "is" : "are"} not a vetted payee — compliance will reject{" "}
@@ -343,7 +343,8 @@ export default function Dashboard() {
                 <button
                   onClick={whitelistBatch}
                   disabled={whitelisting}
-                  className="shrink-0 rounded-md bg-amber-500/90 px-3 py-1.5 font-semibold text-slate-900 hover:bg-amber-400 disabled:opacity-50"
+                  style={{ background: "#EE5126" }}
+                  className="shrink-0 rounded-md px-3 py-1.5 font-semibold text-white hover:bg-brandhover disabled:opacity-50"
                 >
                   {whitelisting ? "Vetting…" : `Vet & whitelist ${unvetted.length}`}
                 </button>
@@ -351,30 +352,31 @@ export default function Dashboard() {
             ) : null}
 
             {preview ? (
-              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-slate-700/60 bg-slate-900/40 px-3 py-2 text-xs">
-                <span className="text-slate-400">Routing preview:</span>
-                <span className="text-emerald-300">{preview.summary.instant} instant</span>
-                <span className="text-amber-300">{preview.summary.whale} whale</span>
-                <span className="text-slate-300">· debit ≈ ${money(preview.summary.totalDebit)}</span>
-                {totalInvalid > 0 ? <span className="text-red-300">· {totalInvalid} invalid row{totalInvalid === 1 ? "" : "s"} excluded</span> : null}
+              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-line2 bg-surface-2 px-3 py-2 text-xs">
+                <span className="text-muted">Routing preview:</span>
+                <span className="text-green">{preview.summary.instant} instant</span>
+                <span style={{ color: "#C2410C" }}>{preview.summary.whale} whale</span>
+                <span className="text-ink3">· debit ≈ ${money(preview.summary.totalDebit)}</span>
+                {totalInvalid > 0 ? <span className="text-red-700">· {totalInvalid} invalid row{totalInvalid === 1 ? "" : "s"} excluded</span> : null}
               </div>
             ) : null}
 
             <div className="mt-4 flex items-center justify-between">
-              <label className="flex items-center gap-2 text-xs text-slate-400">
+              <label className="flex items-center gap-2 text-xs text-muted">
                 <input type="checkbox" checked={useAgent} onChange={(e) => setUseAgent(e.target.checked)} />
                 Authorize via AI agent wallet {agents[0] ? `(${agents[0].label})` : ""}
               </label>
               <button
                 onClick={submit}
                 disabled={submitting || totalValid === 0}
-                className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-40"
+                style={{ background: "#EE5126" }}
+                className="rounded-lg px-4 py-2 text-sm font-semibold text-white hover:bg-brandhover disabled:opacity-40"
                 title={unvetted.length > 0 ? "Some recipients are not vetted — whitelist them first to avoid rejection" : undefined}
               >
                 {submitting ? "Settling…" : totalValid > 0 ? `Settle ${totalValid} payout${totalValid === 1 ? "" : "s"}` : "Settle batch"}
               </button>
             </div>
-            {flash ? <div className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">{flash}</div> : null}
+            {flash ? <div className="mt-3 rounded-lg px-3 py-2 text-xs text-green" style={{ border: "1px solid rgba(14,157,110,0.25)", background: "rgba(14,157,110,0.1)" }}>{flash}</div> : null}
           </Section>
         </div>
 
@@ -388,20 +390,20 @@ export default function Dashboard() {
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Solver mesh */}
         <Section title="Solver Mesh — instant rail (v2 preview)">
-          <p className="mb-3 text-xs text-slate-500">
+          <p className="mb-3 text-xs text-faint">
             Sub-500ms intent settlement via institutional market-makers is on the v2 roadmap. v1 settles every
             payout over CCTP for real cryptographic finality.
           </p>
           <div className="space-y-3">
             {solvers.map((s) => (
-              <div key={s.id} className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-3">
+              <div key={s.id} className="rounded-lg border border-line2 bg-surface-2 p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">{s.label}</span>
                   <Pill text="v2" tone="amber" />
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1 text-[10px] text-slate-400">
+                <div className="mt-2 flex flex-wrap gap-1 text-[10px] text-muted">
                   {s.reserves.filter((r) => r.supported).map((r) => (
-                    <span key={r.chain} className="rounded bg-slate-800 px-1.5 py-0.5">
+                    <span key={r.chain} className="rounded bg-chip px-1.5 py-0.5">
                       {r.chain}: ${r.available}
                     </span>
                   ))}
@@ -415,19 +417,19 @@ export default function Dashboard() {
         <Section title="Autonomous Agent Wallets">
           <div className="space-y-3">
             {agents.map((a) => (
-              <div key={a.agentId} className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-3">
+              <div key={a.agentId} className="rounded-lg border border-line2 bg-surface-2 p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">{a.label}</span>
                   <Pill text={a.enabled ? "active" : "disabled"} tone={a.enabled ? "emerald" : "slate"} />
                 </div>
-                <div className="mt-2 space-y-1 text-[11px] text-slate-400">
+                <div className="mt-2 space-y-1 text-[11px] text-muted">
                   <CapBar label="Daily" used={a.spend.daily} cap={a.policy.daily} />
                   <CapBar label="Weekly" used={a.spend.weekly} cap={a.policy.weekly} />
                   <div>Per-tx cap: ${a.policy.perTransaction}</div>
                 </div>
               </div>
             ))}
-            {agents.length === 0 ? <div className="text-xs text-slate-500">No agent wallets provisioned.</div> : null}
+            {agents.length === 0 ? <div className="text-xs text-faint">No agent wallets provisioned.</div> : null}
           </div>
         </Section>
       </div>
@@ -437,8 +439,8 @@ export default function Dashboard() {
         <Section title="CFO Audit Log — single-currency ledger">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="text-slate-400">
-                <tr className="border-b border-slate-700/60">
+              <thead className="text-muted">
+                <tr className="border-b border-line2">
                   <th className="py-2 pr-3">Time</th>
                   <th className="pr-3">Recipient</th>
                   <th className="pr-3">Chain</th>
@@ -452,14 +454,14 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {audit.map((e) => (
-                  <tr key={e.id} className="border-b border-slate-800/60">
-                    <td className="py-2 pr-3 text-slate-400">{new Date(e.createdAt).toLocaleTimeString()}</td>
+                  <tr key={e.id} className="border-b border-line2">
+                    <td className="py-2 pr-3 text-muted">{new Date(e.createdAt).toLocaleTimeString()}</td>
                     <td className="pr-3 mono">{e.recipientAddress.slice(0, 10)}…</td>
                     <td className="pr-3"><ChainBadge chain={e.targetChain} /></td>
                     <td className="pr-3 text-right">
-                      ${e.amount} {e.currencyCode === "EUR" ? <span className="text-slate-500">→EURC</span> : null}
+                      ${e.amount} {e.currencyCode === "EUR" ? <span className="text-faint">→EURC</span> : null}
                     </td>
-                    <td className="pr-3 text-right text-slate-400">${e.convenienceFee}</td>
+                    <td className="pr-3 text-right text-muted">${e.convenienceFee}</td>
                     <td className="pr-3"><PathBadge path={e.path} /></td>
                     <td className="pr-3">
                       <span
@@ -470,7 +472,7 @@ export default function Dashboard() {
                               : "Live intent → fill"
                             : "Representative latency (simulated rail)"
                         }
-                        className={`mono ${e.settlementMode === "live" ? "text-emerald-300" : "text-slate-400"}`}
+                        className={`mono ${e.settlementMode === "live" ? "text-green" : "text-muted"}`}
                       >
                         {latency(e.latencyMs)}
                         {e.settlementMode === "live" ? " ●" : ""}
@@ -482,7 +484,7 @@ export default function Dashboard() {
                 ))}
                 {audit.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-6 text-center text-slate-500">
+                    <td colSpan={9} className="py-6 text-center text-faint">
                       No settlements yet — add a payee, fund your vault, then submit a batch.
                     </td>
                   </tr>
@@ -493,7 +495,7 @@ export default function Dashboard() {
         </Section>
       </div>
 
-      <footer className="mt-10 text-center text-xs text-slate-500">
+      <footer className="mt-10 text-center text-xs text-faint">
         Arcane Treasury · Arc Testnet (chain 5042002) · v1 settles over Circle CCTP
       </footer>
     </main>
@@ -505,14 +507,14 @@ function Header({ connected, onchain }: { connected: boolean; onchain: boolean }
     <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div className="mb-1 flex items-center gap-3 text-xs">
-          <Link href="/" className="font-semibold tracking-tight text-slate-300 hover:text-white">← SplitStream storefront</Link>
-          <Link href="/docs" className="text-slate-400 hover:text-slate-200">Docs</Link>
-          <Link href="/publish" className="text-slate-400 hover:text-slate-200">Publish</Link>
+          <Link href="/" className="font-semibold tracking-tight text-ink3 hover:text-ink">← SplitStream storefront</Link>
+          <Link href="/docs" className="text-muted hover:text-ink">Docs</Link>
+          <Link href="/publish" className="text-muted hover:text-ink">Publish</Link>
         </div>
         <h1 className="text-2xl font-bold tracking-tight">
-          Arcane <span className="text-indigo-400">Treasury</span>
+          Arcane <span className="text-brand">Treasury</span>
         </h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-muted">
           Stripe for cross-chain payouts · fund once in USDC · zero gas tokens · real CCTP settlement
         </p>
       </div>
@@ -541,7 +543,14 @@ function ErrorBanner({ error, onDismiss }: { error: ErrorInfo; onDismiss: () => 
           ? "This batch exceeds the tenant's rolling 24h volume cap. Reduce the batch or wait for the window to roll."
           : null;
   return (
-    <div className={`mt-4 flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm ${error.isConnectivity ? "border-red-500/40 bg-red-500/10 text-red-300" : "border-amber-500/40 bg-amber-500/10 text-amber-200"}`}>
+    <div
+      className="mt-4 flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm"
+      style={
+        error.isConnectivity
+          ? { borderColor: "#fca5a5", background: "#fef2f2", color: "#b91c1c" }
+          : { borderColor: "rgba(238,81,38,0.25)", background: "rgba(238,81,38,0.1)", color: "#C2410C" }
+      }
+    >
       <div>
         <span>{error.message}</span>
         {error.isConnectivity ? (
@@ -550,10 +559,10 @@ function ErrorBanner({ error, onDismiss }: { error: ErrorInfo; onDismiss: () => 
             <span className="mono">pnpm --filter @arcane/server dev</span>.
           </>
         ) : hint ? (
-          <div className="mt-1 text-xs text-amber-300/90">{hint}</div>
+          <div className="mt-1 text-xs" style={{ color: "#C2410C" }}>{hint}</div>
         ) : null}
       </div>
-      <button onClick={onDismiss} className="shrink-0 text-xs text-slate-400 hover:text-slate-200">
+      <button onClick={onDismiss} className="shrink-0 text-xs text-muted hover:text-ink2">
         Dismiss
       </button>
     </div>
@@ -623,7 +632,7 @@ function CsvImporter<T>({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="mt-4 w-full rounded-lg border border-dashed border-slate-600 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700/30"
+        className="mt-4 w-full rounded-lg border border-dashed border-line3 px-3 py-2 text-xs text-ink3 hover:bg-chip"
       >
         ⬆ {title}
       </button>
@@ -631,21 +640,21 @@ function CsvImporter<T>({
   }
 
   return (
-    <div className="mt-4 space-y-2 rounded-lg border border-slate-700/60 bg-slate-900/40 p-3">
+    <div className="mt-4 space-y-2 rounded-lg border border-line2 bg-surface-2 p-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-slate-300">{title}</span>
-        <button onClick={() => setOpen(false)} className="text-xs text-slate-500 hover:text-slate-300">Close</button>
+        <span className="text-xs font-semibold text-ink3">{title}</span>
+        <button onClick={() => setOpen(false)} className="text-xs text-faint hover:text-ink3">Close</button>
       </div>
-      <p className="text-[11px] text-slate-500">{hint}</p>
+      <p className="text-[11px] text-faint">{hint}</p>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <input
           ref={fileRef}
           type="file"
           accept=".csv,text/csv,text/plain"
           onChange={(e) => onFile(e.target.files?.[0])}
-          className="text-[11px] text-slate-400 file:mr-2 file:rounded file:border file:border-slate-600 file:bg-slate-800 file:px-2 file:py-1 file:text-slate-200"
+          className="text-[11px] text-muted file:mr-2 file:rounded file:border file:border-line3 file:bg-chip file:px-2 file:py-1 file:text-ink2"
         />
-        <button onClick={() => downloadText(templateName, template)} className="rounded-md border border-slate-600 px-2 py-1 hover:bg-slate-700/40">
+        <button onClick={() => downloadText(templateName, template)} className="rounded-md border border-line3 px-2 py-1 hover:bg-chip">
           Download template
         </button>
       </div>
@@ -654,16 +663,16 @@ function CsvImporter<T>({
         onChange={(e) => setText(e.target.value)}
         placeholder="…or paste CSV rows here"
         rows={4}
-        className="w-full rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-[11px] mono"
+        className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-[11px] mono"
       />
       {result ? (
         <div className="space-y-1 text-[11px]">
-          <div className="text-slate-400">
-            Parsed <span className="text-emerald-300">{result.rows.length} valid</span>
-            {result.errors.length > 0 ? <span className="text-red-300"> · {result.errors.length} error{result.errors.length === 1 ? "" : "s"}</span> : null}
+          <div className="text-muted">
+            Parsed <span className="text-green">{result.rows.length} valid</span>
+            {result.errors.length > 0 ? <span className="text-red-700"> · {result.errors.length} error{result.errors.length === 1 ? "" : "s"}</span> : null}
           </div>
           {result.errors.length > 0 ? (
-            <ul className="max-h-24 overflow-y-auto rounded border border-red-500/30 bg-red-500/5 px-2 py-1 text-red-300">
+            <ul className="max-h-24 overflow-y-auto rounded border border-red-300 bg-red-50 px-2 py-1 text-red-700">
               {result.errors.slice(0, 8).map((er, i) => (
                 <li key={i}>{er}</li>
               ))}
@@ -678,14 +687,15 @@ function CsvImporter<T>({
             <button
               onClick={() => apply("append")}
               disabled={busy || !result || result.rows.length === 0}
-              className="rounded-md bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-400 disabled:opacity-40"
+              style={{ background: "#EE5126" }}
+              className="rounded-md px-3 py-1.5 text-xs font-semibold text-white hover:bg-brandhover disabled:opacity-40"
             >
               Append {result?.rows.length ?? 0}
             </button>
             <button
               onClick={() => apply("replace")}
               disabled={busy || !result || result.rows.length === 0}
-              className="rounded-md border border-slate-600 px-3 py-1.5 text-xs hover:bg-slate-700/40 disabled:opacity-40"
+              className="rounded-md border border-line3 px-3 py-1.5 text-xs hover:bg-chip disabled:opacity-40"
             >
               Replace all
             </button>
@@ -694,7 +704,8 @@ function CsvImporter<T>({
           <button
             onClick={() => apply()}
             disabled={busy || !result || result.rows.length === 0}
-            className="rounded-md bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-400 disabled:opacity-40"
+            style={{ background: "#EE5126" }}
+            className="rounded-md px-3 py-1.5 text-xs font-semibold text-white hover:bg-brandhover disabled:opacity-40"
           >
             {busy ? "Importing…" : `${importLabel} ${result?.rows.length ?? 0}`}
           </button>
@@ -707,25 +718,25 @@ function CsvImporter<T>({
 function AccountBar({ me, keyLabel, onSwitch, custom }: { me: Me | null; keyLabel: string; onSwitch: (k: string) => void; custom: boolean }) {
   const [entry, setEntry] = useState("");
   return (
-    <div className="mt-4 flex flex-col gap-2 rounded-xl border border-slate-700/60 bg-slate-900/40 px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+    <div className="mt-4 flex flex-col gap-2 rounded-xl border border-line2 bg-surface-2 px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2">
-        <span className="text-slate-400">Account:</span>
-        <span className="font-medium text-slate-200">{me?.name ?? "—"}</span>
+        <span className="text-muted">Account:</span>
+        <span className="font-medium text-ink2">{me?.name ?? "—"}</span>
         {custom ? <Pill text="your tenant" tone="emerald" /> : <Pill text="demo tenant" tone="slate" />}
-        <span className="mono text-slate-500">{keyLabel.slice(0, 16)}…</span>
+        <span className="mono text-faint">{keyLabel.slice(0, 16)}…</span>
       </div>
       <div className="flex items-center gap-2">
         <input
           placeholder="paste an API key to switch"
           value={entry}
           onChange={(e) => setEntry(e.target.value)}
-          className="w-56 rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1.5 mono"
+          className="w-56 rounded-md border border-line bg-surface px-2 py-1.5 mono"
         />
-        <button onClick={() => entry && onSwitch(entry.trim())} className="rounded-md border border-slate-600 px-2 py-1.5 hover:bg-slate-700/40">
+        <button onClick={() => entry && onSwitch(entry.trim())} className="rounded-md border border-line3 px-2 py-1.5 hover:bg-chip">
           Switch
         </button>
         {custom ? (
-          <button onClick={() => onSwitch(DEMO_API_KEY)} className="rounded-md border border-slate-600 px-2 py-1.5 hover:bg-slate-700/40">
+          <button onClick={() => onSwitch(DEMO_API_KEY)} className="rounded-md border border-line3 px-2 py-1.5 hover:bg-chip">
             Use demo
           </button>
         ) : null}
@@ -760,7 +771,7 @@ function Signup({ onSignedUp }: { onSignedUp: (key: string) => void }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="rounded-lg border border-indigo-500/50 bg-indigo-500/10 px-4 py-2 text-sm font-medium text-indigo-200 hover:bg-indigo-500/20"
+        className="rounded-lg border border-line3 bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-chip"
       >
         + Open a corporate treasury account
       </button>
@@ -768,14 +779,14 @@ function Signup({ onSignedUp }: { onSignedUp: (key: string) => void }) {
   }
 
   return (
-    <Section title="Open a Corporate Treasury Account" right={<button onClick={() => setOpen(false)} className="text-xs text-slate-500 hover:text-slate-300">Close</button>}>
+    <Section title="Open a Corporate Treasury Account" right={<button onClick={() => setOpen(false)} className="text-xs text-faint hover:text-ink3">Close</button>}>
       {issuedKey ? (
         <div className="space-y-3">
-          <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+          <div className="rounded-lg px-3 py-2 text-xs text-green" style={{ border: "1px solid rgba(14,157,110,0.25)", background: "rgba(14,157,110,0.1)" }}>
             Account created. Your API key is shown <strong>once</strong> — save it now. It is already active in this dashboard.
           </div>
           <CopyField label="API key (store securely)" value={issuedKey} />
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted">
             Next: fund your vault from the wallet you registered (see “Fund Your Vault”), add the payees you’ll pay,
             then submit a bulk payout.
           </p>
@@ -784,19 +795,20 @@ function Signup({ onSignedUp }: { onSignedUp: (key: string) => void }) {
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="text-[11px] uppercase tracking-wider text-slate-400">Company name</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Globex Payments Inc." className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-sm" />
+              <span className="text-[11px] uppercase tracking-wider text-muted">Company name</span>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Globex Payments Inc." className="mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm" />
             </label>
             <label className="block">
-              <span className="text-[11px] uppercase tracking-wider text-slate-400">Arc wallet (funds the vault)</span>
-              <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="0x…" className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-sm mono" />
+              <span className="text-[11px] uppercase tracking-wider text-muted">Arc wallet (funds the vault)</span>
+              <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="0x…" className="mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm mono" />
             </label>
           </div>
-          {err ? <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">{err}</div> : null}
+          {err ? <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{err}</div> : null}
           <button
             onClick={submit}
             disabled={busy || name.length < 2 || !/^0x[a-fA-F0-9]{40}$/.test(addr.trim())}
-            className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-40"
+            style={{ background: "#EE5126" }}
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-white hover:bg-brandhover disabled:opacity-40"
           >
             {busy ? "Creating…" : "Create account & issue API key"}
           </button>
@@ -808,15 +820,15 @@ function Signup({ onSignedUp }: { onSignedUp: (key: string) => void }) {
 
 function Funding({ deposit, onRefresh }: { deposit: DepositInfo | null; onRefresh: () => void }) {
   return (
-    <Section title="Fund Your Vault" right={<button onClick={onRefresh} className="text-xs text-slate-500 hover:text-slate-300">Refresh balance</button>}>
+    <Section title="Fund Your Vault" right={<button onClick={onRefresh} className="text-xs text-faint hover:text-ink3">Refresh balance</button>}>
       {deposit ? (
         <div className="space-y-3">
           <Stat label="On-chain vault balance" value={`$${money(deposit.balance)}`} accent="#34d399" />
           <CopyField label="Your registered wallet" value={deposit.tenantAddress} />
           {deposit.vaultAddress ? <CopyField label="Vault address (deposit here)" value={deposit.vaultAddress} /> : null}
           <CopyField label="USDC token (Arc native)" value={deposit.usdcAddress} />
-          <div className="rounded-lg border border-slate-700/60 bg-slate-900/40 px-3 py-2 text-[11px] text-slate-400">
-            <div className="mb-1 font-medium text-slate-300">Two-step funding (from your wallet):</div>
+          <div className="rounded-lg border border-line2 bg-surface-2 px-3 py-2 text-[11px] text-muted">
+            <div className="mb-1 font-medium text-ink3">Two-step funding (from your wallet):</div>
             <ol className="list-decimal space-y-0.5 pl-4">
               <li>Approve: <span className="mono">USDC.approve(vault, amount)</span></li>
               <li>Deposit: <span className="mono">vault.depositUSDC(amount)</span></li>
@@ -826,7 +838,7 @@ function Funding({ deposit, onRefresh }: { deposit: DepositInfo | null; onRefres
           {!deposit.onchainEnabled ? <Pill text="mirror mode — balance is simulated" tone="amber" /> : null}
         </div>
       ) : (
-        <div className="text-xs text-slate-500">Loading funding info…</div>
+        <div className="text-xs text-faint">Loading funding info…</div>
       )}
     </Section>
   );
@@ -884,31 +896,31 @@ function Payees({ recipients, onChanged, onError }: { recipients: Recipients; on
 
   return (
     <Section title={`Payees (${recipients.length})`}>
-      <p className="mb-3 text-xs text-slate-500">Every payout recipient must be vetted here first (on-chain allowlist).</p>
+      <p className="mb-3 text-xs text-faint">Every payout recipient must be vetted here first (on-chain allowlist).</p>
       <div className="space-y-2">
         {recipients.map((r) => (
-          <div key={r.recipientKey} className="flex items-center justify-between rounded-lg border border-slate-700/60 bg-slate-900/40 px-3 py-2">
+          <div key={r.recipientKey} className="flex items-center justify-between rounded-lg border border-line2 bg-surface-2 px-3 py-2">
             <div className="min-w-0">
-              <div className="mono truncate text-xs text-slate-200">{r.address}</div>
-              <div className="mt-0.5 flex items-center gap-2 text-[10px] text-slate-400">
+              <div className="mono truncate text-xs text-ink2">{r.address}</div>
+              <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted">
                 <ChainBadge chain={r.targetChain} />
                 {r.label ? <span>{r.label}</span> : null}
               </div>
             </div>
-            <button onClick={() => remove(r.recipientKey)} disabled={busy} className="shrink-0 text-slate-500 hover:text-red-400">✕</button>
+            <button onClick={() => remove(r.recipientKey)} disabled={busy} className="shrink-0 text-faint hover:text-red-600">✕</button>
           </div>
         ))}
-        {recipients.length === 0 ? <div className="text-xs text-slate-500">No payees yet — add one below.</div> : null}
+        {recipients.length === 0 ? <div className="text-xs text-faint">No payees yet — add one below.</div> : null}
       </div>
 
-      <div className="mt-3 space-y-2 border-t border-slate-700/60 pt-3">
-        <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="recipient address" className={`w-full rounded-md border bg-slate-900/60 px-2 py-1.5 text-xs mono ${addr.length === 0 || validAddr ? "border-slate-700" : "border-red-500/50"}`} />
+      <div className="mt-3 space-y-2 border-t border-line2 pt-3">
+        <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="recipient address" className={`w-full rounded-md border bg-surface px-2 py-1.5 text-xs mono ${addr.length === 0 || validAddr ? "border-line" : "border-red-400"}`} />
         <div className="flex gap-2">
-          <select value={chain} onChange={(e) => setChain(e.target.value as Chain)} className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs">
+          <select value={chain} onChange={(e) => setChain(e.target.value as Chain)} className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs">
             {CHAINS.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="label (optional)" className="flex-1 rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs" />
-          <button onClick={add} disabled={busy || !validAddr} className="rounded-md bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-400 disabled:opacity-40">
+          <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="label (optional)" className="flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-xs" />
+          <button onClick={add} disabled={busy || !validAddr} style={{ background: "#EE5126" }} className="rounded-md px-3 py-1.5 text-xs font-semibold text-white hover:bg-brandhover disabled:opacity-40">
             Add
           </button>
         </div>
@@ -937,8 +949,8 @@ function CapBar({ label, used, cap }: { label: string; used: string; cap: string
         <span>{label}</span>
         <span>${used} / ${cap}</span>
       </div>
-      <div className="mt-0.5 h-1.5 rounded-full bg-slate-800">
-        <div className="h-1.5 rounded-full bg-indigo-500" style={{ width: `${pct}%` }} />
+      <div className="mt-0.5 h-1.5 rounded-full bg-chip">
+        <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: "#EE5126" }} />
       </div>
     </div>
   );

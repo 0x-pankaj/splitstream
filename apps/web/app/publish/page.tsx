@@ -11,10 +11,10 @@ export default function PublishPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
       <header className="mb-6 flex items-center justify-between">
-        <Link href="/" className="text-sm font-semibold tracking-tight text-slate-100">
+        <Link href="/" className="text-sm font-semibold tracking-tight text-ink">
           SplitStream
         </Link>
-        <Link href="/" className="text-xs text-slate-400 hover:text-slate-200">
+        <Link href="/" className="text-xs text-muted hover:text-ink">
           ← storefront
         </Link>
       </header>

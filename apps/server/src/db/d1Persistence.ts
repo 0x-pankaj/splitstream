@@ -12,7 +12,7 @@
  */
 
 import type { Store } from "./store.js";
-import { buildSnapshotJson, restoreFromJson } from "./snapshot.js";
+import { serializeSnapshot, deserializeSnapshot } from "./snapshot.js";
 
 export interface D1Config {
   accountId: string;
@@ -62,7 +62,7 @@ export async function initD1Persistence(store: Store, cfg: D1Config): Promise<((
     const rows = (await d1Query(cfg, "SELECT json FROM snapshot WHERE id = 1")) as Array<{ json?: string }>;
     const json = rows[0]?.json;
     if (json) {
-      restoreFromJson(store, json);
+      deserializeSnapshot(store, json);
       console.log(
         `[persistence] restored ${store.audit.length} audit entries, ${store.tenants.size} tenants from Cloudflare D1`,
       );
@@ -79,7 +79,7 @@ export async function initD1Persistence(store: Store, cfg: D1Config): Promise<((
     if (saving) return; // never overlap a slow HTTP save with the next tick
     saving = true;
     try {
-      const json = buildSnapshotJson(store);
+      const json = serializeSnapshot(store);
       await d1Query(cfg, "INSERT OR REPLACE INTO snapshot (id, json) VALUES (1, ?)", [json]);
     } catch (err) {
       console.warn("[persistence] D1 save failed:", err);

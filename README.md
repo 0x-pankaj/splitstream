@@ -36,6 +36,25 @@ Three things, all live and demoable with zero keys:
    creator commerce, no human in the loop. Also exposed over **MCP** so external
    agents can discover and pay creators.
 
+## Creators sign up and earn — no MetaMask, no seed phrase
+
+A real creator goes to **`/creator`**, signs in with their **email + a one-time
+code**, and is instantly assigned a **custodial USDC wallet on Arc** via **Circle
+Developer-Controlled Wallets** (pre-created pool → assigned on signup). That wallet
+becomes their payout address: every reader payment splits into it, they watch real
+on-chain earnings climb on their dashboard, and they **withdraw** any time. No
+wallet install, no seed phrase, no KYC — the payment floor priced these creators
+out, and this is how they get back in.
+
+- Set `CIRCLE_API_KEY` + `CIRCLE_ENTITY_SECRET` + `CIRCLE_WALLET_SET_ID` for real
+  custodial wallets; with **zero keys** a creator still gets a labeled local-dev
+  wallet so the whole flow is demoable. `EMAIL_API_KEY` (Resend) sends the login
+  code; without it the code prints to the server console.
+- A Circle wallet is an Arc EVM address that drops straight into the existing
+  contributor split — so creator payouts ride the same proven settlement engine.
+- **Agent-to-agent:** `pnpm --filter @arcane/server a2a:demo` runs a buyer agent
+  paying a seller *creator agent* whose Circle wallet receives the USDC.
+
 ## Proven live on Arc Testnet — real USDC, nothing mocked
 
 The full x402 loop has been run end-to-end on **Arc Testnet (chain `5042002`)

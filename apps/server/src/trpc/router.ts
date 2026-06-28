@@ -30,12 +30,30 @@ import { signupTenant } from "../services/onboarding.js";
 import { addTenantRecipient, removeTenantRecipient } from "../services/recipients.js";
 import { callPaidService, payForPiece, whitelistContributors } from "../services/splitEngine.js";
 import { runReadingAgent } from "../services/readingAgent.js";
-import { payLiveForPiece, liveAgentReady, sponsoredUnlock } from "../services/liveAgent.js";
+import { payLiveForPiece, liveAgentReady, sponsoredUnlock, liveRelayerStatus } from "../services/liveAgent.js";
 import { walletPaymentInfo, claimWalletPayment, claimWalletCall } from "../services/walletPayment.js";
 import { restoreEntitlements } from "../services/walletRestore.js";
 import { issueRecoveryCode, redeemRecoveryCode, readerLibrary } from "../services/recovery.js";
 import { computeRealTractionMetrics } from "../services/tractionMetrics.js";
-import { CreatePieceSchema, CallPieceSchema, ContributorSchema, assertBpsSum, parseUsdc6, ARC_TESTNET } from "@arcane/shared";
+import {
+  CreatePieceSchema,
+  CallPieceSchema,
+  ContributorSchema,
+  assertBpsSum,
+  parseUsdc6,
+  ARC_TESTNET,
+  CreatorRequestOtpSchema,
+  CreatorVerifyOtpSchema,
+  CreatorWithdrawSchema,
+  CreatorPayoutAddressSchema,
+  CreatorPublishSchema,
+  type Contributor,
+  type PublishContributorInput,
+} from "@arcane/shared";
+import { requestCreatorOtp, verifyCreatorOtp, authenticateCreator } from "../services/creatorAuth.js";
+import { getWalletBalance6, createWithdrawal } from "../services/circleWallets.js";
+import { creatorEarnings } from "../services/creatorEarnings.js";
+import type { Creator, Store } from "../db/store.js";
 
 /** Arc L1 native USDC system contract (6dp ERC-20 view). */
 const ARC_USDC = "0x3600000000000000000000000000000000000000";
@@ -45,6 +63,53 @@ const DashboardPayoutSchema = z.object({
   agentId: z.string().min(1).optional(),
   idempotencyKey: z.string().min(8).max(128).optional(),
 });
+
+/**
+ * EVM chain label for a registered creator's Circle wallet. The wallet is an Arc
+ * EOA (one address valid across EVM chains) and the live path settles every EVM
+ * contributor on Arc — so this is a display label, exactly like the seed creators.
+ */
+const REGISTERED_CREATOR_CHAIN = "base" as const;
+
+/** The self-view of a creator account (safe to return to the logged-in creator). */
+function creatorView(c: Creator) {
+  return {
+    id: c.id,
+    email: c.email,
+    handle: c.handle,
+    displayName: c.displayName,
+    walletAddress: c.walletAddress,
+    walletProvider: c.walletProvider,
+    /** True when payouts land in a real custodial wallet they can withdraw from. */
+    custodialWallet: c.walletProvider === "circle",
+    tenantId: c.tenantId,
+    createdAt: c.createdAt,
+  };
+}
+
+/** Resolve publish contributor lines (creatorRef or BYO) to engine Contributors. */
+function resolveContributors(store: Store, lines: PublishContributorInput[]): Contributor[] {
+  return lines.map((line) => {
+    if (line.creatorRef) {
+      const ref = line.creatorRef.trim();
+      const creator = ref.includes("@") ? store.creatorByEmail(ref) : store.creatorByHandle(ref);
+      if (!creator) throw new Error(`No registered creator found for "${ref}"`);
+      if (!creator.walletAddress) throw new Error(`Creator "${ref}" has no payout wallet yet`);
+      return {
+        role: line.role,
+        address: creator.walletAddress,
+        targetChain: REGISTERED_CREATOR_CHAIN,
+        splitBps: line.splitBps,
+      };
+    }
+    return {
+      role: line.role,
+      address: line.address!,
+      targetChain: line.targetChain!,
+      splitBps: line.splitBps,
+    };
+  });
+}
 
 export const appRouter = router({
   health: publicProcedure.query(() => ({
@@ -657,8 +722,11 @@ export const appRouter = router({
         }
       }),
 
-    stats: publicProcedure.query(({ ctx }) => {
+    stats: publicProcedure.query(async ({ ctx }) => {
       const pieces = ctx.store.listPieces();
+      // Live-settlement relayer funding (cached) — lets the storefront warn the
+      // operator before the URL silently stops settling real payments.
+      const relayer = await liveRelayerStatus();
       let totalUnlocks = 0;
       let totalPaid6 = 0n;
       const contributors = new Set<string>();
@@ -704,6 +772,8 @@ export const appRouter = router({
         onchainMode: config.onchainEnabled ? "live" : "simulated",
         /** When true, the storefront's live-agent button settles real USDC on Arc. */
         liveAgent: liveAgentReady(),
+        /** Live-settlement relayer funding status (ready / balance / low). */
+        relayer,
         /** Arc explorer base for linking the real settlement txs below. */
         explorer: ARC_TESTNET.explorer,
         /** Real USDC actually paid to creators on Arc (verifiable on-chain). */
@@ -764,6 +834,141 @@ export const appRouter = router({
             budgetUSDC: input.budgetUSDC,
             agentId: input.agentId,
           });
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+  }),
+
+  /**
+   * Creator accounts — the real-user layer. A creator logs in with email + a
+   * one-time code, is assigned a custodial Circle wallet on Arc, publishes pieces,
+   * watches real earnings climb, and withdraws. Session auth via x-creator-token.
+   */
+  creator: router({
+    /** Email a one-time login code (logged to stdout in keyless dev). */
+    requestOtp: publicProcedure
+      .input(CreatorRequestOtpSchema)
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const { channel } = await requestCreatorOtp(ctx.store, input.email, Date.now());
+          return { ok: true, channel };
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
+    /** Verify the code; create the account + assign a wallet on first login. */
+    verifyOtp: publicProcedure
+      .input(CreatorVerifyOtpSchema)
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const { token, creator, isNew } = await verifyCreatorOtp(ctx.store, input, Date.now());
+          return { token, isNew, creator: creatorView(creator) };
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
+    /** The logged-in creator's profile (resolves the x-creator-token session). */
+    me: publicProcedure.query(({ ctx }) => {
+      try {
+        const me = authenticateCreator(ctx.store, ctx.creatorToken, Date.now());
+        return creatorView(me);
+      } catch (err) {
+        throw toTRPCError(err);
+      }
+    }),
+
+    /** The creator's payout wallet + live USDC balance. */
+    wallet: publicProcedure.query(async ({ ctx }) => {
+      try {
+        const me = authenticateCreator(ctx.store, ctx.creatorToken, Date.now());
+        const balance6 = me.walletId ? await getWalletBalance6(me.walletId) : 0n;
+        return {
+          address: me.walletAddress,
+          provider: me.walletProvider,
+          custodial: me.walletProvider === "circle",
+          balanceUSDC: formatUsdc6(balance6),
+          explorer: ARC_TESTNET.explorer,
+        };
+      } catch (err) {
+        throw toTRPCError(err);
+      }
+    }),
+
+    /** Real on-chain earnings rolled up to this creator's payout address. */
+    earnings: publicProcedure.query(({ ctx }) => {
+      try {
+        const me = authenticateCreator(ctx.store, ctx.creatorToken, Date.now());
+        return creatorEarnings(ctx.store, me.walletAddress);
+      } catch (err) {
+        throw toTRPCError(err);
+      }
+    }),
+
+    /** Pieces this creator has published. */
+    myPieces: publicProcedure.query(({ ctx }) => {
+      try {
+        const me = authenticateCreator(ctx.store, ctx.creatorToken, Date.now());
+        return ctx.store.listPieces(me.tenantId).map(serializePiece);
+      } catch (err) {
+        throw toTRPCError(err);
+      }
+    }),
+
+    /** Publish a piece from the creator dashboard (no API key — session auth). */
+    publish: publicProcedure
+      .input(CreatorPublishSchema)
+      .mutation(({ ctx, input }) => {
+        try {
+          const me = authenticateCreator(ctx.store, ctx.creatorToken, Date.now());
+          const contributors = resolveContributors(ctx.store, input.contributors);
+          assertBpsSum(contributors);
+          const piece = ctx.store.createPiece({
+            publisherTenantId: me.tenantId,
+            title: input.title,
+            kind: input.kind,
+            price6: parseUsdc6(input.priceUSDC),
+            contributors,
+            endpoint: input.endpoint,
+            httpMethod: input.httpMethod,
+            auth: input.auth,
+            preview: input.preview,
+            content: input.content,
+          });
+          whitelistContributors(ctx.store, piece);
+          return serializePiece(piece);
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
+    /** Withdraw USDC from the custodial wallet to an external EVM address. */
+    withdraw: publicProcedure
+      .input(CreatorWithdrawSchema)
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const me = authenticateCreator(ctx.store, ctx.creatorToken, Date.now());
+          if (!me.walletId) throw new Error("No wallet to withdraw from");
+          const res = await createWithdrawal(me.walletId, input.toAddress, parseUsdc6(input.amountUSDC));
+          return { ok: true, transactionId: res.transactionId, state: res.state };
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
+    /** Switch to a bring-your-own payout address (advanced creators). */
+    setPayoutAddress: publicProcedure
+      .input(CreatorPayoutAddressSchema)
+      .mutation(({ ctx, input }) => {
+        try {
+          const me = authenticateCreator(ctx.store, ctx.creatorToken, Date.now());
+          me.walletAddress = input.address;
+          me.walletProvider = "byo";
+          me.walletId = null;
+          ctx.store.upsertCreator(me);
+          return creatorView(me);
         } catch (err) {
           throw toTRPCError(err);
         }

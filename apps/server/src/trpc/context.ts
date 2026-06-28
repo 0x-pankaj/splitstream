@@ -11,17 +11,19 @@ import { authenticate, type AuthContext } from "../auth/apiKeys.js";
 export interface TrpcContext {
   store: Store;
   auth: AuthContext | null;
+  /** Raw creator session bearer token (x-creator-token); resolved per-procedure. */
+  creatorToken: string | null;
 }
 
 export function makeContextFactory(store: Store) {
-  return (apiKey: string | undefined | null): TrpcContext => {
+  return (apiKey: string | undefined | null, creatorToken?: string | undefined | null): TrpcContext => {
     let auth: AuthContext | null = null;
     try {
       auth = apiKey ? authenticate(store, apiKey) : null;
     } catch {
       auth = null;
     }
-    return { store, auth };
+    return { store, auth, creatorToken: creatorToken ?? null };
   };
 }
 

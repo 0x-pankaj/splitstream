@@ -1,20 +1,71 @@
 @import "tailwindcss";
 
+/* SplitStream design system — warm cream surface, orange brand, real-USDC green.
+ * Tokens mirror the "SplitStream Redesign" design doc exactly so the storefront
+ * and piece pages render pixel-for-pixel against it. */
+@theme {
+  --color-bg: #faf8f4;
+  --color-surface: #ffffff;
+  --color-surface-2: #fcfbf8;
+
+  --color-ink: #17140f;
+  --color-ink2: #2d2a24;
+  --color-ink3: #3d3933;
+  --color-ink4: #4d4840;
+  --color-muted: #6e675c;
+  --color-muted2: #8a8378;
+  --color-faint: #a39c8e;
+  --color-faint2: #c2bbad;
+
+  --color-line: #ece7de;
+  --color-line2: #f0ebe2;
+  --color-line3: #dad3c7;
+  --color-chip: #f1ece3;
+
+  --color-brand: #ee5126;
+  --color-brandhover: #d8431a;
+
+  --color-green: #0e9d6e;
+  --color-greenink: #0e7a56;
+
+  /* per-chain settlement tints live as inline hex in components (see CHAIN_TINT)
+   * — not registered as utilities so they never shadow text-base / bg-base, etc. */
+
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Guard against any stray wide child forcing a horizontal scroll on mobile. */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
-  background: radial-gradient(1200px 600px at 80% -10%, #10233f 0%, #0a0e1a 45%, #070a12 100%);
-  color: #e7ecf3;
+  background: #faf8f4;
+  color: #17140f;
   min-height: 100vh;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
+/* The signature white card: hairline warm border + the faintest lift. */
 .card {
-  background: rgba(18, 24, 38, 0.72);
-  border: 1px solid rgba(120, 150, 200, 0.14);
-  border-radius: 16px;
-  backdrop-filter: blur(6px);
+  background: #ffffff;
+  border: 1px solid #ece7de;
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(23, 20, 15, 0.04);
 }
 
 .badge {
@@ -22,12 +73,38 @@ body {
   align-items: center;
   gap: 6px;
   border-radius: 9999px;
-  padding: 2px 10px;
+  padding: 3px 9px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 
 .mono {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* The "live on Arc" heartbeat dot. */
+@keyframes ssPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+}
+
+.live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #0e9d6e;
+  animation: ssPulse 1.8s ease-in-out infinite;
 }

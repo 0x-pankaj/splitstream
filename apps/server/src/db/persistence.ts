@@ -10,7 +10,7 @@
  */
 
 import type { Store } from "./store.js";
-import { buildSnapshotJson, restoreFromJson } from "./snapshot.js";
+import { serializeSnapshot, deserializeSnapshot } from "./snapshot.js";
 import { d1ConfigFromEnv, initD1Persistence } from "./d1Persistence.js";
 
 type SqliteDb = {
@@ -35,7 +35,7 @@ async function initSqlitePersistence(store: Store, path: string): Promise<() => 
   try {
     const row = db.query("SELECT json FROM snapshot WHERE id = 1").get() as { json: string } | undefined;
     if (row?.json) {
-      restoreFromJson(store, row.json);
+      deserializeSnapshot(store, row.json);
       console.log(
         `[persistence] restored ${store.audit.length} audit entries, ` +
           `${store.tenants.size} tenants from ${path}`,
@@ -47,7 +47,7 @@ async function initSqlitePersistence(store: Store, path: string): Promise<() => 
 
   return () => {
     try {
-      db.query("INSERT OR REPLACE INTO snapshot (id, json) VALUES (1, ?)").run(buildSnapshotJson(store));
+      db.query("INSERT OR REPLACE INTO snapshot (id, json) VALUES (1, ?)").run(serializeSnapshot(store));
     } catch (err) {
       console.warn("[persistence] save failed:", err);
     }

@@ -66,11 +66,39 @@ export function getReaderId(): string {
   return id;
 }
 
+const CREATOR_TOKEN_KEY = "splitstream_creator_token";
+let cachedCreatorToken: string | null = null;
+
+/** The logged-in creator's session bearer token, if any. */
+export function getCreatorToken(): string | null {
+  if (cachedCreatorToken) return cachedCreatorToken;
+  if (typeof window === "undefined") return null;
+  cachedCreatorToken = window.localStorage.getItem(CREATOR_TOKEN_KEY);
+  return cachedCreatorToken;
+}
+
+/** Persist + activate a creator session token (after email-OTP login). */
+export function setCreatorToken(token: string): void {
+  cachedCreatorToken = token;
+  if (typeof window !== "undefined") window.localStorage.setItem(CREATOR_TOKEN_KEY, token);
+}
+
+/** Log the creator out (clear the session token). */
+export function clearCreatorToken(): void {
+  cachedCreatorToken = null;
+  if (typeof window !== "undefined") window.localStorage.removeItem(CREATOR_TOKEN_KEY);
+}
+
 export const trpc = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
       url: `${API_URL}/trpc`,
-      headers: () => ({ "x-api-key": getApiKey() }),
+      headers: () => {
+        const headers: Record<string, string> = { "x-api-key": getApiKey() };
+        const creatorToken = getCreatorToken();
+        if (creatorToken) headers["x-creator-token"] = creatorToken;
+        return headers;
+      },
     }),
   ],
 });

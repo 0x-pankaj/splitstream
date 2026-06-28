@@ -227,3 +227,132 @@ export const CallPieceSchema = z.object({
 });
 
 export type CallPieceInput = z.infer<typeof CallPieceSchema>;
+
+// ── SplitStream: creator accounts (email + OTP) ─────────────────────────────
+
+/** A creator's login email. */
+const creatorEmail = z.string().email("Enter a valid email").max(200);
+
+/** A URL-safe creator handle: lowercase letters, digits, hyphens. */
+export const creatorHandle = z
+  .string()
+  .min(2)
+  .max(40)
+  .regex(/^[a-z0-9-]+$/, "Handle may use lowercase letters, numbers and hyphens only");
+
+/** Request a one-time login code be emailed to a creator. */
+export const CreatorRequestOtpSchema = z.object({ email: creatorEmail });
+export type CreatorRequestOtpInput = z.infer<typeof CreatorRequestOtpSchema>;
+
+/**
+ * Verify the one-time code and log in. On first verification for an email we
+ * create the creator and assign a Circle wallet; `displayName`/`handle` seed the
+ * new profile (ignored on subsequent logins).
+ */
+export const CreatorVerifyOtpSchema = z.object({
+  email: creatorEmail,
+  code: z.string().regex(/^\d{6}$/, "The code is 6 digits"),
+  displayName: z.string().min(1).max(80).optional(),
+  handle: creatorHandle.optional(),
+});
+export type CreatorVerifyOtpInput = z.infer<typeof CreatorVerifyOtpSchema>;
+
+/** Withdraw USDC from a creator's custodial wallet to an external EVM address. */
+export const CreatorWithdrawSchema = z.object({
+  toAddress: arcWalletAddress,
+  amountUSDC: usdcAmount,
+});
+export type CreatorWithdrawInput = z.infer<typeof CreatorWithdrawSchema>;
+
+/** Override a creator's payout destination with a bring-your-own EVM address. */
+export const CreatorPayoutAddressSchema = z.object({
+  address: arcWalletAddress,
+});
+export type CreatorPayoutAddressInput = z.infer<typeof CreatorPayoutAddressSchema>;
+
+/**
+ * One contributor line on the creator publish form. A line either references a
+ * registered creator (`creatorRef` = their handle or email → resolves to their
+ * Circle wallet address) OR brings its own `address` + `targetChain`. Shares are
+ * basis points and must sum to 10000 across the piece.
+ */
+export const PublishContributorSchema = z
+  .object({
+    role: z.string().min(1).max(60),
+    splitBps: z.number().int().min(1).max(10_000),
+    creatorRef: z.string().min(1).max(200).optional(),
+    address: z.string().min(1).optional(),
+    targetChain: z.enum(TARGET_CHAINS).optional(),
+  })
+  .superRefine((c, ctx) => {
+    if (c.creatorRef) return; // resolved server-side to a registered creator wallet
+    if (!c.address || !c.targetChain) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["address"],
+        message: "Provide a registered creatorRef, or an address and targetChain",
+      });
+      return;
+    }
+    if (!isAddressValidForChain(c.address, c.targetChain)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["address"],
+        message: `address is not valid for chain "${c.targetChain}"`,
+      });
+    }
+  });
+
+export type PublishContributorInput = z.infer<typeof PublishContributorSchema>;
+
+/**
+ * A registered creator publishes a piece from their dashboard (session-auth, no
+ * API key). Same content/api shape as `CreatePieceSchema`, but contributors may
+ * reference other registered creators by handle/email.
+ */
+export const CreatorPublishSchema = z
+  .object({
+    title: z.string().min(1).max(200),
+    kind: z.enum(PIECE_KINDS),
+    priceUSDC: usdcAmount,
+    contributors: z.array(PublishContributorSchema).min(1).max(20),
+    preview: z.string().max(2_000).optional(),
+    content: z.string().max(50_000).optional(),
+    endpoint: httpUrl.optional(),
+    httpMethod: z.enum(["GET", "POST"]).default("GET"),
+    auth: z
+      .object({
+        type: z.enum(["bearer", "header", "query"]),
+        name: z.string().min(1).max(120).optional(),
+        secret: z.string().min(1).max(4096),
+      })
+      .optional()
+      .superRefine((a, ctx) => {
+        if (a && (a.type === "header" || a.type === "query") && !a.name) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["name"],
+            message: `auth.name is required for type "${a.type}"`,
+          });
+        }
+      }),
+  })
+  .superRefine((piece, ctx) => {
+    const sum = piece.contributors.reduce((acc, c) => acc + c.splitBps, 0);
+    if (sum !== 10_000) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["contributors"],
+        message: `contributor splitBps must sum to 10000 (100%); got ${sum}`,
+      });
+    }
+    if (piece.kind === "api" && !piece.endpoint) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endpoint"],
+        message: 'an "api" piece requires an endpoint URL',
+      });
+    }
+  });
+
+export type CreatorPublishInput = z.infer<typeof CreatorPublishSchema>;

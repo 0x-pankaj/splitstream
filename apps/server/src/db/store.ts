@@ -70,6 +70,52 @@ export interface OnchainSettlement {
   at: string;
 }
 
+/**
+ * A registered creator — a real person who signed up (email + OTP) and was
+ * assigned a custodial Circle USDC wallet on Arc to receive and withdraw their
+ * revenue split. Each creator gets an auto-created publisher tenant so they can
+ * publish pieces. `walletAddress` is what flows into a piece's contributor list.
+ */
+export interface Creator {
+  id: string;
+  /** Lowercased email — the login identity. */
+  email: string;
+  /** Unique URL-safe handle (e.g. "ada-lovelace"). */
+  handle: string;
+  displayName: string;
+  /** Auto-created publisher tenant this creator owns. */
+  tenantId: string;
+  /** Circle wallet id (or `dev-…` for a local-dev wallet), null before assignment. */
+  walletId: string | null;
+  /** Payout address — the Circle wallet, a local-dev address, or a BYO address. */
+  walletAddress: string | null;
+  /** Which custody backend produced `walletAddress`. */
+  walletProvider: "circle" | "local-dev" | "byo";
+  createdAt: string;
+}
+
+/** A creator's bearer login session (token → creator), with an absolute expiry. */
+export interface CreatorSession {
+  token: string;
+  creatorId: string;
+  /** epoch ms after which the session is invalid. */
+  expiresAt: number;
+}
+
+/** A pending email login one-time code (hashed; short-lived; attempt-limited). */
+export interface OtpChallenge {
+  email: string;
+  codeHash: string;
+  expiresAt: number;
+  attempts: number;
+}
+
+/** An unassigned, pre-created Circle wallet waiting in the pool. */
+export interface PooledWallet {
+  id: string;
+  address: string;
+}
+
 /** A single-use x402 payment challenge issued for one paid API call. */
 export interface X402Challenge {
   nonce: string;
@@ -136,6 +182,19 @@ export class Store {
    * site can link straight to the Arc explorer. Newest appended last.
    */
   onchainSettlements: OnchainSettlement[] = [];
+
+  /**
+   * Registered creators (email+OTP signup), keyed by creator id. Their assigned
+   * Circle wallet address is what receives the revenue split — the real-user,
+   * real-earnings layer on top of the engine.
+   */
+  creators = new Map<string, Creator>();
+  /** Active creator login sessions, keyed by bearer token. */
+  creatorSessions = new Map<string, CreatorSession>();
+  /** Pending email OTP challenges, keyed by lowercased email (one live at a time). */
+  otpChallenges = new Map<string, OtpChallenge>();
+  /** Pre-created, unassigned Circle wallets waiting to be handed to a creator. */
+  circleWalletPool: PooledWallet[] = [];
 
   /** x402 single-use payment challenges, keyed by nonce (anti-replay). */
   x402Challenges = new Map<string, X402Challenge>();
@@ -520,6 +579,81 @@ export class Store {
     if (this.x402SettledTxHashes.has(key)) return false;
     this.x402SettledTxHashes.add(key);
     return true;
+  }
+
+  // ── Creators (SplitStream real-user layer) ───────────────────────────────────
+
+  upsertCreator(c: Creator): void {
+    this.creators.set(c.id, c);
+  }
+
+  getCreator(id: string): Creator | undefined {
+    return this.creators.get(id);
+  }
+
+  /** Find a creator by their (lowercased) login email. */
+  creatorByEmail(email: string): Creator | undefined {
+    const wanted = email.trim().toLowerCase();
+    for (const c of this.creators.values()) if (c.email === wanted) return c;
+    return undefined;
+  }
+
+  /** Find a creator by handle (case-insensitive). */
+  creatorByHandle(handle: string): Creator | undefined {
+    const wanted = handle.trim().toLowerCase();
+    for (const c of this.creators.values()) if (c.handle.toLowerCase() === wanted) return c;
+    return undefined;
+  }
+
+  /** True when a handle is already taken (case-insensitive). */
+  handleTaken(handle: string): boolean {
+    return Boolean(this.creatorByHandle(handle));
+  }
+
+  // ── Creator sessions ──────────────────────────────────────────────────────────
+
+  putCreatorSession(session: CreatorSession): void {
+    this.creatorSessions.set(session.token, session);
+  }
+
+  /** Resolve a live session to its creator, pruning it if expired. */
+  creatorForSession(token: string, now: number): Creator | undefined {
+    const s = this.creatorSessions.get(token);
+    if (!s) return undefined;
+    if (now >= s.expiresAt) {
+      this.creatorSessions.delete(token);
+      return undefined;
+    }
+    return this.creators.get(s.creatorId);
+  }
+
+  // ── Email OTP challenges ────────────────────────────────────────────────────
+
+  putOtpChallenge(c: OtpChallenge): void {
+    this.otpChallenges.set(c.email.trim().toLowerCase(), c);
+  }
+
+  getOtpChallenge(email: string): OtpChallenge | undefined {
+    return this.otpChallenges.get(email.trim().toLowerCase());
+  }
+
+  deleteOtpChallenge(email: string): void {
+    this.otpChallenges.delete(email.trim().toLowerCase());
+  }
+
+  // ── Circle wallet pool ────────────────────────────────────────────────────────
+
+  circleWalletPoolSize(): number {
+    return this.circleWalletPool.length;
+  }
+
+  pushCircleWallets(wallets: PooledWallet[]): void {
+    this.circleWalletPool.push(...wallets);
+  }
+
+  /** Pop one unassigned pool wallet (undefined when the pool is empty). */
+  popCircleWallet(): PooledWallet | undefined {
+    return this.circleWalletPool.shift();
   }
 
   // ── Audit log ────────────────────────────────────────────────────────────────
