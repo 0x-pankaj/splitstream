@@ -13,6 +13,7 @@
     "mcp": "bun run src/mcp/stdio.ts",
     "prove:split": "bun run scripts/prove-split.ts",
     "a2a:demo": "bun run scripts/a2a-demo.ts",
+    "circle:setup": "bun run scripts/circle-setup.ts",
     "x402:call": "bun run scripts/x402-call.ts",
     "prove:cctp": "bun run scripts/bridge-arc-to-base.ts",
     "gateway:deposit": "bun run scripts/gateway-deposit.ts",

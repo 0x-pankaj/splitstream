@@ -917,19 +917,6 @@ export function FanOut({ unlock }: { unlock: Unlock }) {
 
 /* ───────────────────────── Piece reading page ───────────────────────── */
 
-/** A small outline pill button used in the sidebar payment row. */
-function MiniButton({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="flex-1 rounded-[10px] border border-line3 bg-surface px-3 py-2.5 text-[12.5px] font-medium text-ink transition hover:bg-chip disabled:opacity-50"
-    >
-      {children}
-    </button>
-  );
-}
-
 /**
  * The full piece page: article column (gate → reveal) + sticky unlock sidebar.
  * Owns every reader payment path (walletless sponsored, self-custody wallet,
@@ -1277,19 +1264,34 @@ export function PieceDetail({ piece, onUnlocked, live }: { piece: Piece; onUnloc
                   : sponsorBusy ? "Settling on Arc — paying creators…" : `Unlock for $${piece.price}`}
               </button>
 
-              {payInfo?.enabled && walletAvailable ? (
-                <div className="mt-2.5 flex gap-2">
-                  <MiniButton onClick={isApi ? walletCallRun : walletRun} disabled={isApi ? walletCallBusy : walletBusy}>
-                    {(isApi ? walletCallBusy : walletBusy) ? "Confirm in wallet…" : "Pay with wallet"}
-                  </MiniButton>
-                  {!isApi ? (
-                    <MiniButton onClick={sponsorRun} disabled={sponsorBusy}>We cover the gas</MiniButton>
-                  ) : null}
-                </div>
-              ) : null}
-
               {!isApi ? (
                 <p className="mt-2 text-center text-[11px] text-faint">No wallet needed — we cover the payment. Stays unlocked on this device.</p>
+              ) : null}
+
+              {/* Optional self-custody path — only when an injected wallet exists. */}
+              {payInfo?.enabled && walletAvailable ? (
+                <>
+                  <button
+                    onClick={isApi ? walletCallRun : walletRun}
+                    disabled={isApi ? walletCallBusy : walletBusy}
+                    className="mt-2.5 w-full rounded-[10px] border border-line3 bg-surface px-3 py-2.5 text-[12.5px] font-medium text-ink transition hover:bg-chip disabled:opacity-50"
+                  >
+                    {(isApi ? walletCallBusy : walletBusy)
+                      ? "Confirm in your wallet…"
+                      : connAddr
+                        ? `Or pay it yourself from ${connAddr.slice(0, 6)}…${connAddr.slice(-4)}`
+                        : "Or pay from your own wallet"}
+                  </button>
+                  <p className="mt-1.5 text-center text-[11px] text-faint">
+                    {(isApi ? walletCallBusy : walletBusy) ? (
+                      <span style={{ color: "#C2410C" }}>Waiting for your wallet — open the extension if no popup appears.</span>
+                    ) : connAddr ? (
+                      <>{onArc ? <span style={{ color: "#0E7A56" }}>Arc ✓</span> : <span style={{ color: "#C2410C" }}>we'll switch to Arc</span>} · needs test USDC</>
+                    ) : (
+                      <>Self-custody — needs Arc Testnet + test USDC.</>
+                    )}
+                  </p>
+                </>
               ) : null}
 
               {live ? (
