@@ -15,6 +15,7 @@ import {
   RestorePurchases,
   type Piece,
 } from "../../../components/storefront";
+import { CopyField } from "../../../components/ui";
 
 export default function PieceClient({ id: pieceId }: { id: string }) {
   const [piece, setPiece] = useState<Piece | null>(null);
@@ -22,6 +23,9 @@ export default function PieceClient({ id: pieceId }: { id: string }) {
   const [live, setLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Origin resolved client-side so the embed snippet is copy-paste correct.
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
 
   const refresh = useCallback(async () => {
     try {
@@ -82,6 +86,18 @@ export default function PieceClient({ id: pieceId }: { id: string }) {
           <div className="space-y-10 pt-2 pb-6">
             <PieceDetail piece={piece} onUnlocked={refresh} live={live} />
             <RestorePurchases onRestored={refresh} />
+
+            {/* Embed: let any site monetize this piece with one line. */}
+            <div className="card p-5">
+              <div className="mb-1 flex items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-faint">Embed this on your site</span>
+                <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: "#F1ECE3", color: "#6E675C" }}>TipJar widget</span>
+              </div>
+              <p className="mb-3 text-[13px] text-muted">
+                Paste this where you want a pay button — readers unlock &amp; pay all {piece.contributors.length} creator{piece.contributors.length === 1 ? "" : "s"} without leaving your page. No wallet, no signup.
+              </p>
+              <CopyField label="" value={`<script src="${origin || "https://your-site"}/widget.js" data-piece="${piece.id}"></script>`} />
+            </div>
 
             {related.length > 0 ? (
               <section>
