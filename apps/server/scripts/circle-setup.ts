@@ -23,6 +23,7 @@
 import crypto from "node:crypto";
 import os from "node:os";
 import path from "node:path";
+import { mkdirSync } from "node:fs";
 
 async function main(): Promise<void> {
   const apiKey = process.env.CIRCLE_API_KEY;
@@ -43,15 +44,17 @@ async function main(): Promise<void> {
 
   // 2. Register the ciphertext (only for a fresh secret) + write the recovery file.
   if (isFresh) {
+    // NOTE: the SDK treats recoveryFileDownloadPath as a DIRECTORY — it writes
+    // recovery_file_<uuid>.dat inside it — so it must exist and be a folder.
     const recoveryDir = path.join(os.homedir(), ".circle");
-    const recoveryFileDownloadPath = path.join(recoveryDir, "splitstream-recovery-file.json");
+    mkdirSync(recoveryDir, { recursive: true });
     try {
       await sdk.registerEntitySecretCiphertext({
         apiKey,
         entitySecret,
-        recoveryFileDownloadPath,
+        recoveryFileDownloadPath: recoveryDir,
       });
-      console.log(`✓ Entity secret registered. Recovery file: ${recoveryFileDownloadPath}`);
+      console.log(`✓ Entity secret registered. Recovery file saved under: ${recoveryDir}`);
       console.log("  KEEP THAT FILE SAFE and OUT of git — it's your only recovery path.");
     } catch (err) {
       console.error("✗ Entity secret registration failed:", (err as Error).message);
