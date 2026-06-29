@@ -237,6 +237,26 @@ pnpm --filter @arcane/server x402:call            # → 402 → pay → 200 + re
 The one-click web button (`pieces.callApi`) is a bundled convenience path over
 the same engine; the x402 HTTP endpoint is the interoperable, agent-facing one.
 
+### Who pays? (sponsored vs self-pay)
+
+There are two payer models, and the **split payout to contributors always comes
+from the platform relayer** (`0x8984…7154c`, `RELAYER_PRIVATE_KEY`) — only the
+*price-in* differs:
+
+| Buyer | Who pays the price in | Sponsored by us? |
+|---|---|---|
+| Human, default **"Unlock for $X"** (walletless) | platform relayer (via a relayer-funded demo agent) | ✅ yes |
+| Agent via our **MCP** tools / in-app reading agent / `pieces.callApi` | same relayer-funded demo agent | ✅ yes |
+| Human, **"pay from your own wallet"** button | the reader's own wallet (real USDC on Arc) | ❌ self-pay |
+| External agent hitting raw **`POST /pieces/:id/call`** with `X-PAYMENT` | the **agent's own wallet** — it submits a real on-chain payment proof | ❌ self-pay (x402) |
+
+In short: a **CLI/MCP agent that uses our tools is sponsored** (we cover it from
+the relayer); a **true x402 agent pays itself** via the `/call` challenge. Because
+sponsored buys spend the relayer's USDC, keep it topped up at
+[faucet.circle.com](https://faucet.circle.com) (Arc Testnet) — the
+`RELAYER_ALERT_WEBHOOK` pings you when it's low. *(The relayer is also the `payTo`
+where every price lands before the split fans out.)*
+
 ### Real settlement on Arc (LIVE_X402)
 
 With `LIVE_X402=true` + a funded relayer, the flow settles **real USDC on Arc
