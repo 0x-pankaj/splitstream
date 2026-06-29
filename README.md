@@ -50,6 +50,10 @@ out, and this is how they get back in.
   custodial wallets; with **zero keys** a creator still gets a labeled local-dev
   wallet so the whole flow is demoable. `EMAIL_API_KEY` (Resend) sends the login
   code; without it the code prints to the server console.
+- **One-shot setup:** `CIRCLE_API_KEY=TEST_API_KEY:… pnpm --filter @arcane/server
+  circle:setup` generates + registers the entity secret (saves a recovery file to
+  `~/.circle`) and creates the wallet set, printing the three vars to drop into
+  `.env` / Railway. Creators then auto-provision a real Arc wallet on signup.
 - A Circle wallet is an Arc EVM address that drops straight into the existing
   contributor split — so creator payouts ride the same proven settlement engine.
 - **Agent-to-agent:** `pnpm --filter @arcane/server a2a:demo` runs a buyer agent
@@ -81,12 +85,15 @@ no human in the loop. Owner USDC balance went `0 → 0.01` on-chain.
 
 - **API (live on Arc Testnet):** <https://splitstream-api-production.up.railway.app>
   — health: [`/health`](https://splitstream-api-production.up.railway.app/health)
-  (`onchainEnabled: true`, chain `5042002`); catalog:
-  [`/api/v1/pieces`](https://splitstream-api-production.up.railway.app/api/v1/pieces).
-  Runs in live Arc mode (real x402 + live-agent settlement); the bundled
-  storefront unlock settles simulated so casual browsing never drains the relayer.
-- **Storefront:** deployed on Vercel from `apps/web` with
-  `NEXT_PUBLIC_API_URL` pointed at the API above.
+  (`onchainEnabled: true`, `allReal: true`, `circleWallets: true`, chain `5042002`);
+  catalog: [`/api/v1/pieces`](https://splitstream-api-production.up.railway.app/api/v1/pieces).
+  Runs in live Arc mode — every buy path (walletless sponsored unlock, pay-from-
+  your-wallet, agent x402, and the reading agent) settles **real USDC on Arc**, and
+  creators get **live Circle custodial wallets** they can withdraw from.
+- **Storefront:** deployed on Vercel from `apps/web` with `NEXT_PUBLIC_API_URL`
+  pointed at the API above (and `NEXT_PUBLIC_SITE_URL` for absolute share/OG URLs).
+  Shared `/piece/<id>` links render rich social cards, and any piece is embeddable
+  on third-party sites via the one-line **TipJar widget** (`/widget.js`).
 - **Source:** <https://github.com/0x-pankaj/splitstream>
 
 Every `localhost:8787` example below also works against the live API — just swap
@@ -117,6 +124,21 @@ Open <http://localhost:3000>:
 
 Shareable single-piece link: `/piece/<id>`. The old B2B treasury console (this
 project's origin) still lives at `/dashboard`.
+
+### Embed anywhere — the TipJar widget
+
+Any creator can monetize a piece on **their own** site (blog, portfolio, Substack)
+with a single tag — readers unlock & pay every contributor without leaving the
+host page, walletless:
+
+```html
+<script src="https://YOUR-SITE/widget.js" data-piece="piece-arc-frontier-001"></script>
+```
+
+`/widget.js` replaces itself with a compact, auto-resizing iframe (`/embed/<id>`)
+that runs the relayer-sponsored unlock and fans the split out on Arc. Optional
+attributes: `data-width`, `data-base`. Every piece page shows a one-click
+copy-paste snippet for its own widget.
 
 ### Try the API directly
 
@@ -305,9 +327,10 @@ See [`PHASE4_LIVE_PROOF.md`](./PHASE4_LIVE_PROOF.md) for the funded prerequisite
 ## Tests
 
 ```bash
-pnpm test            # Vitest: server (incl. split + agent) + shared — 40 + 12
-pnpm typecheck       # tsc across the workspace
-pnpm contracts:test  # Foundry (28)
+pnpm --filter @arcane/server test   # Vitest — 85 tests (split, agent, creator,
+                                    #   wallets, x402, recovery, snapshot, MCP)
+pnpm typecheck                      # tsc across the workspace
+cd contracts && forge test          # Foundry — 28 tests
 ```
 
 ## Monorepo layout
@@ -318,9 +341,10 @@ splitstream/
 │                      6/18 decimal-duality utils, routing/fees, splits.ts
 ├── contracts/         Foundry — vault + compliance guard (live on Arc), 28 tests
 └── apps/
-    ├── server/        Bun + Hono + tRPC — split engine, reading agent, hybrid
-    │                  router (Gateway/CCTP), MCP server, prove:split
-    └── web/           Next.js storefront (/), shareable /piece/[id], /dashboard
+    ├── server/        Bun + Hono + tRPC — split engine, reading agent, Circle
+    │                  custodial wallets, hybrid router (Gateway/CCTP), MCP, scripts
+    └── web/           Next.js storefront (/), /piece/[id] (+ OG cards), /creator,
+                       /publish, /dashboard, embeddable /embed/[id] + /widget.js
 ```
 
 ## The Arc precision duality (important)
