@@ -58,6 +58,8 @@ export interface AppConfig {
    * is plaintext (and existing plaintext snapshots remain readable either way).
    */
   snapshotEncKey: string | undefined;
+  /** Optional Slack/Discord webhook pinged once when the relayer runs low. */
+  relayerAlertWebhook: string | undefined;
   /** Comma-separated allowed browser origins for credentialed/admin CORS. */
   corsOrigins: string[];
   /** Autonomous demo-agent key that pays real USDC on Arc from the storefront. */
@@ -153,6 +155,8 @@ export function loadConfig(): AppConfig {
     circleWallets,
     email,
     snapshotEncKey: env("SNAPSHOT_ENC_KEY"),
+    /** Optional Slack/Discord webhook pinged once when the relayer runs low. */
+    relayerAlertWebhook: env("RELAYER_ALERT_WEBHOOK"),
     corsOrigins: (env("CORS_ORIGINS") ?? "")
       .split(",")
       .map((o) => o.trim())

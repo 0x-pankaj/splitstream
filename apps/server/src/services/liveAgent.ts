@@ -115,7 +115,35 @@ export interface RelayerStatus {
 export async function liveRelayerStatus(now = Date.now()): Promise<RelayerStatus> {
   if (!liveAgentReady()) return { ready: false, balanceUSDC: "0", low: false };
   const bal6 = await relayerUsdc6(now).catch(() => 0n);
-  return { ready: true, balanceUSDC: formatUsdc6(bal6), low: bal6 < RELAYER_LOW_6 };
+  const balanceUSDC = formatUsdc6(bal6);
+  const low = bal6 < RELAYER_LOW_6;
+  // Edge-triggered: ping the ops webhook once when we cross into low, re-arm on
+  // recovery — so a long-running live demo never silently stops paying creators.
+  maybeAlertRelayerLow(low, balanceUSDC);
+  return { ready: true, balanceUSDC, low };
+}
+
+// Whether we've already alerted for the current low episode (re-armed on recovery).
+let _relayerLowAlerted = false;
+
+/** Fire-and-forget ops alert (Slack/Discord-compatible) on the low→ transition. */
+function maybeAlertRelayerLow(low: boolean, balanceUSDC: string): void {
+  if (!low) {
+    _relayerLowAlerted = false; // recovered → re-arm for the next episode
+    return;
+  }
+  if (_relayerLowAlerted || !config.relayerAlertWebhook) return;
+  _relayerLowAlerted = true;
+  const text = `⚠️ SplitStream relayer is LOW — $${balanceUSDC} USDC on Arc Testnet. Top up at https://faucet.circle.com or live unlocks will start failing. Relayer: ${relayerAccount?.address ?? "?"}`;
+  void fetch(config.relayerAlertWebhook, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    // `text` for Slack, `content` for Discord — each ignores the other key.
+    body: JSON.stringify({ text, content: text }),
+  }).catch(() => {
+    // Best-effort: a failed alert must never break the health/traction read.
+    _relayerLowAlerted = false; // allow a retry on the next poll
+  });
 }
 
 /**

@@ -1,10 +1,29 @@
 import type { Metadata, Viewport } from "next";
+import { SITE_URL } from "../lib/site";
 import "./globals.css";
 
+const TITLE = "SplitStream — pay-per-piece, split across chains";
+const DESCRIPTION =
+  "Unlock a single article, photo, or song for a few cents — and watch the payment split instantly across every contributor, each paid on their own chain, in under 500ms on Circle's Arc L1.";
+
 export const metadata: Metadata = {
-  title: "SplitStream — pay-per-piece, split across chains",
-  description:
-    "Unlock a single article, photo, or song for a few cents — and watch the payment split instantly across every contributor, each paid on their own chain, in under 500ms on Circle's Arc L1.",
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: DESCRIPTION,
+  // The opengraph-image.tsx / piece/[id]/opengraph-image.tsx routes auto-attach
+  // the actual card image (absolute URL resolved against metadataBase).
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    siteName: "SplitStream",
+    type: "website",
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
 };
 
 // Mobile-first viewport: device width, allow pinch-zoom up to 5x for accessibility,
