@@ -52,6 +52,30 @@ describe("computeSplit", () => {
   });
 });
 
+describe("deletePiece", () => {
+  it("removes the piece and its entitlements, and reports existence", () => {
+    const store = freshStore();
+    const piece = store.createPiece({
+      publisherTenantId: DEMO_TENANT_ID,
+      title: "to delete",
+      kind: "article",
+      price6: parseUsdc6("0.02"),
+      contributors: [{ role: "creator", address: "0x1", targetChain: "base", splitBps: 10000 }],
+    });
+    store.grantEntitlement(piece.id, "reader-x");
+    expect(store.getPiece(piece.id)).toBeDefined();
+    expect(store.hasEntitlement(piece.id, "reader-x")).toBe(true);
+
+    expect(store.deletePiece(piece.id)).toBe(true);
+    expect(store.getPiece(piece.id)).toBeUndefined();
+    expect(store.hasEntitlement(piece.id, "reader-x")).toBe(false);
+    expect(store.listPieces().some((p) => p.id === piece.id)).toBe(false);
+    // Deleting again (or an unknown id) reports false, not an error.
+    expect(store.deletePiece(piece.id)).toBe(false);
+    expect(store.deletePiece("nope")).toBe(false);
+  });
+});
+
 describe("payForPiece (read → pay → cross-chain split)", () => {
   it("fans a single unlock out to every contributor on their own chain", async () => {
     const store = freshStore();

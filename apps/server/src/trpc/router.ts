@@ -944,6 +944,24 @@ export const appRouter = router({
         }
       }),
 
+    /** Permanently delete one of this creator's own pieces from the catalog. */
+    deletePiece: publicProcedure
+      .input(z.object({ pieceId: z.string().min(1) }))
+      .mutation(({ ctx, input }) => {
+        try {
+          const me = authenticateCreator(ctx.store, ctx.creatorToken, Date.now());
+          const piece = ctx.store.getPiece(input.pieceId);
+          if (!piece) throw new Error("No such piece");
+          if (piece.publisherTenantId !== me.tenantId) {
+            throw new Error("You can only delete your own pieces");
+          }
+          const deleted = ctx.store.deletePiece(input.pieceId);
+          return { deleted };
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
     /** Withdraw USDC from the custodial wallet to an external EVM address. */
     withdraw: publicProcedure
       .input(CreatorWithdrawSchema)

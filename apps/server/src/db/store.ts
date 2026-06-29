@@ -425,6 +425,21 @@ export class Store {
     return piece;
   }
 
+  /**
+   * Permanently remove a piece (and its entitlements) from the catalog. Returns
+   * true if it existed. The removal persists via the next snapshot flush.
+   */
+  deletePiece(id: string): boolean {
+    const existed = this.pieces.delete(id);
+    if (existed) {
+      // Drop any reader entitlements for the now-gone piece so they don't linger.
+      for (const key of [...this.entitlements]) {
+        if (key.startsWith(`${id}::`)) this.entitlements.delete(key);
+      }
+    }
+    return existed;
+  }
+
   /** All pieces, newest first; optionally scoped to one publisher tenant. */
   listPieces(publisherTenantId?: string): Piece[] {
     const all = [...this.pieces.values()];
