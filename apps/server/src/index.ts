@@ -65,7 +65,7 @@ app.get("/health", async (c) => {
   const relayer = await liveRelayerStatus().catch(() => ({ ready: false, balanceUSDC: "0", low: false }));
   return c.json({
     ok: true,
-    service: "arcane-treasury",
+    service: "splitstream",
     onchainEnabled: config.onchainEnabled,
     /** True when every payment path settles REAL USDC on Arc (no simulation). */
     allReal: liveAgentReady(),

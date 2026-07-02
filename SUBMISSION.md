@@ -20,14 +20,20 @@ finality, USDC-native settlement.
 One engine, two front doors, every payment splits across chains:
 
 1. **Per-piece content** — unlock an article/song/photo for a few cents; the
-   price fans out to writer (Base), editor (Arbitrum), photographer (Solana)
-   instantly.
+   price fans out to writer (Base), editor (Arbitrum), photographer (Ethereum)
+   instantly, each in real USDC on Arc. (Non-EVM chains like Solana route via CCTP
+   — roadmap; the live default split is EVM so every leg settles real, no skipped
+   contributor.)
 2. **Pay-per-call APIs (x402)** — register any API by URL + price; an agent pays
    per call via the real HTTP **402 challenge-response** and gets the result.
    We hold + inject the seller's upstream key, so the agent buys access to an
    **authenticated** API **without an account or KYC** — and never sees the key.
 3. **Autonomous AI buyer** — an agent with its own wallet discovers (MCP),
    decides (LLM via OpenRouter), and pays per use, with on-chain spend caps.
+4. **Self-serve creators** — a creator signs up with an email + password, is
+   assigned a **custodial Circle wallet on Arc** automatically (no MetaMask, no
+   seed phrase, no KYC), publishes a piece, watches real earnings climb, and
+   withdraws — plus a one-line embeddable **TipJar** widget for any site.
 
 ## Proven live on Arc Testnet (real USDC, no mock)
 
@@ -53,7 +59,9 @@ The agent signed every payment with its **own key** — autonomous, no human.
   the live loop produces real on-chain Arc payouts you can verify on the explorer.
 - **Circle / Arc usage (20%)** — Arc L1 (USDC-native gas, sub-second finality),
   USDC ERC-20 settlement on Arc, x402 standard, Circle CCTP (proven Arc→Base) and
-  Gateway instant path for cross-chain legs. Live contracts on Arc Testnet.
+  Gateway instant path for cross-chain legs, plus **Circle Developer-Controlled
+  Wallets** (custodial creator payout wallets pre-created on Arc). Live contracts
+  on Arc Testnet.
 - **Innovation (20%)** — *a payment that fans out.* pay.sh moves money A→B;
   SplitStream takes one sub-cent payment and pays N contributors across chains in
   one shot — plus no-KYC access to authenticated APIs via credential injection.
@@ -67,7 +75,7 @@ Reader / AI agent ──pays sub-cent USDC──▶ SplitStream (x402 facilitato
                                               │
         ┌──────────────────────────┬─────────┴───────────────┐
         ▼                          ▼                          ▼
-  writer · Base            editor · Arbitrum         photographer · Solana
+  writer · Base            editor · Arbitrum       photographer · Ethereum
   (or: API owner gets paid real USDC on Arc; multi-owner APIs split too)
 ```
 
@@ -98,7 +106,8 @@ platform fee out of the price.
 
 ## Links
 
+- Live storefront: <https://splitstream-web.vercel.app>
 - Live API (Arc Testnet): <https://splitstream-api-production.up.railway.app> ([`/health`](https://splitstream-api-production.up.railway.app/health))
-- Live storefront: _Vercel deployment of `apps/web` (NEXT_PUBLIC_API_URL → the API above)_
-- Demo video (<3 min): _add Loom/YouTube_
+- Hosted MCP (agents connect by URL): `https://splitstream-api-production.up.railway.app/mcp`
+- Demo video (<3 min): _add Loom/YouTube link before submitting_
 - Repo: <https://github.com/0x-pankaj/splitstream>

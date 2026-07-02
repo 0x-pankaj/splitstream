@@ -91,6 +91,11 @@ export interface Creator {
   walletAddress: string | null;
   /** Which custody backend produced `walletAddress`. */
   walletProvider: "circle" | "local-dev" | "byo";
+  /**
+   * scrypt password hash (`salt:derived`, hex) for password-login accounts.
+   * Absent for OTP-only accounts, which authenticate via emailed codes instead.
+   */
+  passwordHash?: string | null;
   createdAt: string;
 }
 

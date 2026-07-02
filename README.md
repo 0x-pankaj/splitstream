@@ -90,8 +90,9 @@ no human in the loop. Owner USDC balance went `0 → 0.01` on-chain.
   Runs in live Arc mode — every buy path (walletless sponsored unlock, pay-from-
   your-wallet, agent x402, and the reading agent) settles **real USDC on Arc**, and
   creators get **live Circle custodial wallets** they can withdraw from.
-- **Storefront:** deployed on Vercel from `apps/web` with `NEXT_PUBLIC_API_URL`
-  pointed at the API above (and `NEXT_PUBLIC_SITE_URL` for absolute share/OG URLs).
+- **Storefront:** <https://splitstream-web.vercel.app> — deployed on Vercel from
+  `apps/web` with `NEXT_PUBLIC_API_URL` pointed at the API above (and
+  `NEXT_PUBLIC_SITE_URL` for absolute share/OG URLs).
   Shared `/piece/<id>` links render rich social cards, and any piece is embeddable
   on third-party sites via the one-line **TipJar widget** (`/widget.js`).
 - **Source:** <https://github.com/0x-pankaj/splitstream>

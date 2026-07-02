@@ -45,7 +45,7 @@ function fail(err: unknown) {
 
 export function createMcpServer(store: Store): McpServer {
   const server = new McpServer({
-    name: "arcane-treasury",
+    name: "splitstream",
     version: "0.1.0",
   });
 

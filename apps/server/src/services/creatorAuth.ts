@@ -10,7 +10,7 @@
  * publish pieces immediately.
  */
 
-import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import { ArcaneError, errors, parseUsdc6 } from "@arcane/shared";
 import type { Creator, Store } from "../db/store.js";
 import { sendOtpEmail, type SentOtp } from "./email.js";
@@ -25,6 +25,25 @@ const CREATOR_TENANT_LIMIT_6 = parseUsdc6("500000");
 
 function hashCode(email: string, code: string): string {
   return createHash("sha256").update(`${email.toLowerCase()}:${code}`).digest("hex");
+}
+
+const SCRYPT_KEYLEN = 64;
+
+/** Hash a password with scrypt + a per-user random salt. Format: `salt:derived` (hex). */
+function hashPassword(password: string): string {
+  const salt = randomBytes(16);
+  const derived = scryptSync(password, salt, SCRYPT_KEYLEN);
+  return `${salt.toString("hex")}:${derived.toString("hex")}`;
+}
+
+/** Constant-time verify of a password against a stored `salt:derived` hash. */
+function verifyPassword(password: string, stored: string): boolean {
+  const [saltHex, derivedHex] = stored.split(":");
+  if (!saltHex || !derivedHex) return false;
+  const salt = Buffer.from(saltHex, "hex");
+  const expected = Buffer.from(derivedHex, "hex");
+  const actual = scryptSync(password, salt, expected.length);
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
 /** A cryptographically-random 6-digit code (node:crypto, never Math.random). */
@@ -86,10 +105,17 @@ export interface VerifyOtpResult {
   isNew: boolean;
 }
 
+/** Mint a fresh 30-day bearer session for a creator. */
+function mintSession(store: Store, creator: Creator, now: number): string {
+  const token = `ses_${randomBytes(24).toString("hex")}`;
+  store.putCreatorSession({ token, creatorId: creator.id, expiresAt: now + SESSION_TTL_MS });
+  return token;
+}
+
 /** Create a brand-new creator: assign a wallet + an auto publisher tenant. */
 async function createCreator(
   store: Store,
-  input: { email: string; displayName?: string; handle?: string },
+  input: { email: string; displayName?: string; handle?: string; passwordHash?: string },
   now: number,
 ): Promise<Creator> {
   const id = randomUUID();
@@ -118,6 +144,7 @@ async function createCreator(
     walletId: wallet.walletId,
     walletAddress: wallet.address,
     walletProvider: wallet.provider,
+    passwordHash: input.passwordHash ?? null,
     createdAt: new Date(now).toISOString(),
   };
   store.upsertCreator(creator);
@@ -157,9 +184,55 @@ export async function verifyCreatorOtp(
     isNew = true;
   }
 
-  const token = `ses_${randomBytes(24).toString("hex")}`;
-  store.putCreatorSession({ token, creatorId: creator.id, expiresAt: now + SESSION_TTL_MS });
+  const token = mintSession(store, creator, now);
   return { token, creator, isNew };
+}
+
+/**
+ * Sign up with email + password. Creates the account (wallet + tenant), stores a
+ * scrypt hash of the password, and returns a session — no email round-trip. If the
+ * email already exists, signup is refused (the owner should log in instead).
+ */
+export async function signupCreatorWithPassword(
+  store: Store,
+  input: { email: string; password: string; displayName?: string; handle?: string },
+  now: number,
+): Promise<VerifyOtpResult> {
+  const email = input.email.trim().toLowerCase();
+  if (store.creatorByEmail(email)) {
+    throw new ArcaneError("VALIDATION_FAILED", "An account with that email already exists — log in instead", 409);
+  }
+  if (input.handle && store.handleTaken(input.handle)) {
+    throw new ArcaneError("VALIDATION_FAILED", "That handle is already taken", 409);
+  }
+  const creator = await createCreator(
+    store,
+    { email, displayName: input.displayName, handle: input.handle, passwordHash: hashPassword(input.password) },
+    now,
+  );
+  const token = mintSession(store, creator, now);
+  return { token, creator, isNew: true };
+}
+
+/** Log in with email + password. */
+export function loginCreatorWithPassword(
+  store: Store,
+  input: { email: string; password: string },
+  now: number,
+): VerifyOtpResult {
+  const email = input.email.trim().toLowerCase();
+  const creator = store.creatorByEmail(email);
+  // Uniform error for unknown-email vs wrong-password so we don't leak which
+  // emails are registered.
+  const invalid = () => new ArcaneError("UNAUTHORIZED", "Incorrect email or password", 401);
+  if (!creator) throw invalid();
+  if (!creator.passwordHash) {
+    // Account exists but was created via the email-code path — no password set.
+    throw new ArcaneError("VALIDATION_FAILED", "This account uses email-code login — request a login code instead", 400);
+  }
+  if (!verifyPassword(input.password, creator.passwordHash)) throw invalid();
+  const token = mintSession(store, creator, now);
+  return { token, creator, isNew: false };
 }
 
 /** Resolve a session bearer token to its creator, or throw unauthorized. */

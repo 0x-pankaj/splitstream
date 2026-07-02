@@ -5,6 +5,8 @@ import {
   requestCreatorOtp,
   verifyCreatorOtp,
   authenticateCreator,
+  signupCreatorWithPassword,
+  loginCreatorWithPassword,
 } from "../services/creatorAuth.js";
 import { creatorEarnings } from "../services/creatorEarnings.js";
 import { appRouter } from "../trpc/router.js";
@@ -103,6 +105,80 @@ describe("creator email + OTP login", () => {
     const store = new Store();
     expect(() => authenticateCreator(store, "nope", NOW)).toThrow(/log ?in/i);
     expect(() => authenticateCreator(store, undefined, NOW)).toThrow(/log ?in/i);
+  });
+});
+
+describe("creator email + password login", () => {
+  it("signs up with a wallet + tenant and mints a working session", async () => {
+    const store = new Store();
+    const { token, creator, isNew } = await signupCreatorWithPassword(
+      store,
+      { email: "Dana@Example.com", password: "correct horse battery", displayName: "Dana Scully" },
+      NOW,
+    );
+    expect(isNew).toBe(true);
+    expect(creator.email).toBe("dana@example.com");
+    expect(creator.handle).toBe("dana-scully");
+    expect(creator.walletAddress).toMatch(/^0x[a-fA-F0-9]{40}$/);
+    expect(store.tenants.get(creator.tenantId)).toBeDefined();
+    expect(authenticateCreator(store, token, NOW).id).toBe(creator.id);
+    // The password is stored as a scrypt hash — never the plaintext.
+    expect(creator.passwordHash).toMatch(/^[0-9a-f]+:[0-9a-f]+$/);
+    expect(creator.passwordHash).not.toContain("correct horse battery");
+  });
+
+  it("logs in with the right password and rejects the wrong one", async () => {
+    const store = new Store();
+    const created = await signupCreatorWithPassword(
+      store,
+      { email: "fox@example.com", password: "trustno1-really" },
+      NOW,
+    );
+    const ok = loginCreatorWithPassword(store, { email: "FOX@example.com", password: "trustno1-really" }, NOW);
+    expect(ok.isNew).toBe(false);
+    expect(ok.creator.id).toBe(created.creator.id);
+    expect(authenticateCreator(store, ok.token, NOW).id).toBe(created.creator.id);
+
+    expect(() => loginCreatorWithPassword(store, { email: "fox@example.com", password: "wrong-password" }, NOW)).toThrow(
+      /incorrect email or password/i,
+    );
+  });
+
+  it("refuses duplicate-email signup and unknown-email login", async () => {
+    const store = new Store();
+    await signupCreatorWithPassword(store, { email: "dup@example.com", password: "password-one" }, NOW);
+    await expect(
+      signupCreatorWithPassword(store, { email: "dup@example.com", password: "password-two" }, NOW),
+    ).rejects.toThrow(/already exists/i);
+    expect(() => loginCreatorWithPassword(store, { email: "ghost@example.com", password: "whatever-8" }, NOW)).toThrow(
+      /incorrect email or password/i,
+    );
+    // Only one account was ever created.
+    expect(store.creators.size).toBe(1);
+  });
+
+  it("tells an OTP-only account to use the email code instead of a password", async () => {
+    const store = new Store();
+    const code = await loginCode(store, "otponly@example.com");
+    await verifyCreatorOtp(store, { email: "otponly@example.com", code }, NOW);
+    expect(() => loginCreatorWithPassword(store, { email: "otponly@example.com", password: "anything-8" }, NOW)).toThrow(
+      /email-code login/i,
+    );
+  });
+
+  it("signs up and logs in through the tRPC router", async () => {
+    const store = new Store();
+    const anon = appRouter.createCaller({ store, auth: null, creatorToken: null });
+    const signup = await anon.creator.signup({ email: "router@example.com", password: "router-pass-123" });
+    expect(signup.token).toMatch(/^ses_/);
+    // The public view never exposes the password hash.
+    expect(signup.creator).not.toHaveProperty("passwordHash");
+
+    const login = await anon.creator.login({ email: "router@example.com", password: "router-pass-123" });
+    expect(login.creator.id).toBe(signup.creator.id);
+
+    const me = appRouter.createCaller({ store, auth: null, creatorToken: login.token });
+    expect((await me.creator.me()).id).toBe(signup.creator.id);
   });
 });
 

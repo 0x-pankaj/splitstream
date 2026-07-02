@@ -44,13 +44,21 @@ import {
   ARC_TESTNET,
   CreatorRequestOtpSchema,
   CreatorVerifyOtpSchema,
+  CreatorSignupSchema,
+  CreatorLoginSchema,
   CreatorWithdrawSchema,
   CreatorPayoutAddressSchema,
   CreatorPublishSchema,
   type Contributor,
   type PublishContributorInput,
 } from "@arcane/shared";
-import { requestCreatorOtp, verifyCreatorOtp, authenticateCreator } from "../services/creatorAuth.js";
+import {
+  requestCreatorOtp,
+  verifyCreatorOtp,
+  authenticateCreator,
+  signupCreatorWithPassword,
+  loginCreatorWithPassword,
+} from "../services/creatorAuth.js";
 import { getWalletBalance6, createWithdrawal } from "../services/circleWallets.js";
 import { creatorEarnings } from "../services/creatorEarnings.js";
 import type { Creator, Store } from "../db/store.js";
@@ -864,6 +872,30 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         try {
           const { token, creator, isNew } = await verifyCreatorOtp(ctx.store, input, Date.now());
+          return { token, isNew, creator: creatorView(creator) };
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
+    /** Create an account with email + password (no email round-trip); returns a session. */
+    signup: publicProcedure
+      .input(CreatorSignupSchema)
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const { token, creator, isNew } = await signupCreatorWithPassword(ctx.store, input, Date.now());
+          return { token, isNew, creator: creatorView(creator) };
+        } catch (err) {
+          throw toTRPCError(err);
+        }
+      }),
+
+    /** Log in with email + password; returns a session. */
+    login: publicProcedure
+      .input(CreatorLoginSchema)
+      .mutation(({ ctx, input }) => {
+        try {
+          const { token, creator, isNew } = loginCreatorWithPassword(ctx.store, input, Date.now());
           return { token, isNew, creator: creatorView(creator) };
         } catch (err) {
           throw toTRPCError(err);

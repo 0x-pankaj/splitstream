@@ -257,6 +257,32 @@ export const CreatorVerifyOtpSchema = z.object({
 });
 export type CreatorVerifyOtpInput = z.infer<typeof CreatorVerifyOtpSchema>;
 
+/** A creator password: long enough to be meaningful, capped to bound hashing cost. */
+const creatorPassword = z
+  .string()
+  .min(8, "Use at least 8 characters")
+  .max(200, "That password is too long");
+
+/**
+ * Sign up with email + password. Creates the creator, assigns a Circle wallet on
+ * Arc, and returns a session — no email round-trip required (works on stage with
+ * zero provider keys). `displayName`/`handle` seed the new profile.
+ */
+export const CreatorSignupSchema = z.object({
+  email: creatorEmail,
+  password: creatorPassword,
+  displayName: z.string().min(1).max(80).optional(),
+  handle: creatorHandle.optional(),
+});
+export type CreatorSignupInput = z.infer<typeof CreatorSignupSchema>;
+
+/** Log in with email + password (for accounts created via password signup). */
+export const CreatorLoginSchema = z.object({
+  email: creatorEmail,
+  password: creatorPassword,
+});
+export type CreatorLoginInput = z.infer<typeof CreatorLoginSchema>;
+
 /** Withdraw USDC from a creator's custodial wallet to an external EVM address. */
 export const CreatorWithdrawSchema = z.object({
   toAddress: arcWalletAddress,
