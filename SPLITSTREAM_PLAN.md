@@ -115,8 +115,29 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
 
 ## Build State (UPDATE THIS LAST, EVERY SESSION)
 
-**Last updated:** session 6 (real-user production layer — creator accounts +
-Circle wallets + hardening).
+**Last updated:** session 7 (final-presentation polish — password login + deploy).
+
+**Presentation-readiness pass (session 7):**
+- **Creator email + password signup/login** (`services/creatorAuth.ts`:
+  `signupCreatorWithPassword` / `loginCreatorWithPassword`; scrypt salt:derived +
+  timing-safe verify; `Creator.passwordHash`, round-trips through the snapshot).
+  Removes the email-provider dependency for onboarding — works on stage with no
+  Resend key. tRPC `creator.signup` / `creator.login`; `/creator/login` gains a
+  password path (log in / sign up tabs) with the OTP email path behind a switch.
+  Uniform "incorrect email or password" (no enumeration); duplicate-email signup
+  refused; OTP-only accounts told to use the code.
+- **Branding:** `/health` service + MCP `serverInfo` now report `"splitstream"`.
+- **Docs truthed up:** SUBMISSION.md (photographer Ethereum not Solana; Circle
+  Developer-Controlled Wallets + self-serve creators + TipJar; live storefront +
+  hosted MCP URLs); README storefront URL.
+- **Tests 90/90** (+5 password). Typecheck + web build (12 routes) clean.
+- **DEPLOYED + verified LIVE:** pushed to `master`; Railway API redeployed
+  (`/health` → `service:"splitstream"`), Vercel storefront auto-deployed. Prod
+  signup returns a **real Circle custodial wallet** (`walletProvider:"circle"`),
+  login works, wrong password → 401. Relayer at ~11 USDC (not low).
+- **OPEN (user-only):** record the <3-min demo video + drop the link into
+  SUBMISSION.md; top up the relayer before presenting; optionally repoint/delete
+  the stale `splitstream.vercel.app` deployment (404s the new routes).
 
 **Real creators, real wallets, real earnings (session 6 — the production layer):**
 - **Why:** deadline extended to **July 6 2026**; judges now weight "real users ·
