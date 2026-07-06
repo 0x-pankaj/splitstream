@@ -115,7 +115,23 @@ unlock receipt with one settled payout per contributor on base/arbitrum/solana
 
 ## Build State (UPDATE THIS LAST, EVERY SESSION)
 
-**Last updated:** session 7 (final-presentation polish — password login + deploy).
+**Last updated:** session 8 (submission day — posted fresh live-pilot traction to arc-canteen).
+
+**Submission-day traction update (session 8):**
+- **Posted a new `arc-canteen update-traction`** with the current verifiable
+  live-pilot numbers pulled straight from prod `traction.stats` (nothing typed by
+  hand): **$1.05 real USDC to creators** across **30 on-chain settlements / 47
+  payout legs** (~2x the $0.55 from a week ago); **143 purchases** from **13
+  paying buyers** (16 buyer wallets incl. x402 agents) and **45 visitors** →
+  **28.9% reader→payer** at **$0.035 avg/piece**; **4 contributors** across
+  **3 chains** (Base/Arbitrum/Ethereum). Per-creator on-chain earnings listed by
+  address (0x8134… $0.844/30, 0xeAFa… $0.147/10, 0x704e… $0.059/7 — sums to $1.05).
+- **Prod verified healthy** at post time: `/health` → `allReal:true`,
+  `circleWallets:true`, relayer ready at **11.05 USDC** (not low). Storefront
+  `splitstream-web.vercel.app`, API `splitstream-api-production.up.railway.app`.
+- **No code change** this session — traction reporting only. Tests/typecheck
+  unchanged from session 7 (90/90 green).
+
 
 **Presentation-readiness pass (session 7):**
 - **Creator email + password signup/login** (`services/creatorAuth.ts`:
