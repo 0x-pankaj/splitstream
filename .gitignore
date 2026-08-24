@@ -36,3 +36,7 @@ npm-debug.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Internal working docs (kept local, not published to GitHub)
+SPLITSTREAM_PLAN.md
+DEMO_SCRIPT.md
