@@ -2,6 +2,7 @@
   "name": "arcane-treasury",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Arcane Treasury — Stripe for cross-chain payouts, built natively on Circle's Arc L1.",
   "packageManager": "pnpm@10.28.0",
   "engines": {
