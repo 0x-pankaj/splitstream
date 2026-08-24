@@ -1,6 +1,6 @@
 /**
  * MCP stdio entrypoint. Run with `bun run src/mcp/stdio.ts` and register in a
- * client (e.g. Claude Code:  claude mcp add arcane-treasury -- bun run <path>).
+ * client (e.g. Claude Code:  claude mcp add splitstream -- bun run <path>).
  *
  * Seeds the demo world so the tools have a live tenant, solvers, and an agent
  * wallet to operate on out of the box.
