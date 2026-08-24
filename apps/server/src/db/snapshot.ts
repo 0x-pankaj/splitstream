@@ -133,12 +133,13 @@ function encKey(): Buffer | undefined {
 }
 
 /**
- * Encode the store snapshot for storage. With SNAPSHOT_ENC_KEY set, the JSON is
- * AES-256-GCM encrypted (so secrets/emails/keys aren't cleartext at rest);
- * otherwise it's plaintext JSON (and stays readable by older deployments).
+ * Encode an already-built snapshot JSON for storage. With SNAPSHOT_ENC_KEY set,
+ * the JSON is AES-256-GCM encrypted (so secrets/emails/keys aren't cleartext at
+ * rest); otherwise it's plaintext (and stays readable by older deployments).
+ * The IV is random, so the ciphertext differs on every call — dirty checks must
+ * compare the plaintext JSON (see snapshotDigest), never this output.
  */
-export function serializeSnapshot(store: Store): string {
-  const json = buildSnapshotJson(store);
+export function encryptSnapshotJson(json: string): string {
   const key = encKey();
   if (!key) return json;
   const iv = randomBytes(12);
@@ -146,6 +147,16 @@ export function serializeSnapshot(store: Store): string {
   const ct = Buffer.concat([cipher.update(json, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
   return ENC_PREFIX + Buffer.concat([iv, tag, ct]).toString("base64");
+}
+
+/** Encode the store snapshot for storage (build + encrypt in one step). */
+export function serializeSnapshot(store: Store): string {
+  return encryptSnapshotJson(buildSnapshotJson(store));
+}
+
+/** Stable digest of the plaintext snapshot — equal iff the durable state is equal. */
+export function snapshotDigest(json: string): string {
+  return createHash("sha256").update(json).digest("hex");
 }
 
 /** Decode a stored snapshot blob (encrypted or plaintext) and restore the store. */

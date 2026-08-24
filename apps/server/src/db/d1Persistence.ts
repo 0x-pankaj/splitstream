@@ -12,7 +12,7 @@
  */
 
 import type { Store } from "./store.js";
-import { serializeSnapshot, deserializeSnapshot } from "./snapshot.js";
+import { buildSnapshotJson, deserializeSnapshot, encryptSnapshotJson, snapshotDigest } from "./snapshot.js";
 
 export interface D1Config {
   accountId: string;
@@ -56,6 +56,7 @@ async function d1Query(cfg: D1Config, sql: string, params: unknown[] = []): Prom
  * and shutdown. Returns null if D1 is unreachable (caller falls back to sqlite).
  */
 export async function initD1Persistence(store: Store, cfg: D1Config): Promise<(() => Promise<void>) | null> {
+  let lastSavedDigest: string | undefined;
   try {
     await d1Query(cfg, "CREATE TABLE IF NOT EXISTS snapshot (id INTEGER PRIMARY KEY, json TEXT NOT NULL)");
 
@@ -63,6 +64,9 @@ export async function initD1Persistence(store: Store, cfg: D1Config): Promise<((
     const json = rows[0]?.json;
     if (json) {
       deserializeSnapshot(store, json);
+      // Seed the dirty check from the restored state so a restart with no new
+      // activity never rewrites an identical snapshot.
+      lastSavedDigest = snapshotDigest(buildSnapshotJson(store));
       console.log(
         `[persistence] restored ${store.audit.length} audit entries, ${store.tenants.size} tenants from Cloudflare D1`,
       );
@@ -79,8 +83,11 @@ export async function initD1Persistence(store: Store, cfg: D1Config): Promise<((
     if (saving) return; // never overlap a slow HTTP save with the next tick
     saving = true;
     try {
-      const json = serializeSnapshot(store);
-      await d1Query(cfg, "INSERT OR REPLACE INTO snapshot (id, json) VALUES (1, ?)", [json]);
+      const json = buildSnapshotJson(store);
+      const digest = snapshotDigest(json);
+      if (digest === lastSavedDigest) return; // store unchanged — skip the D1 write
+      await d1Query(cfg, "INSERT OR REPLACE INTO snapshot (id, json) VALUES (1, ?)", [encryptSnapshotJson(json)]);
+      lastSavedDigest = digest;
     } catch (err) {
       console.warn("[persistence] D1 save failed:", err);
     } finally {

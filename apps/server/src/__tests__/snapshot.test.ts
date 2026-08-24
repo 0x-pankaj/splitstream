@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { parseUsdc6 } from "@arcane/shared";
 import { Store } from "../db/store.js";
-import { serializeSnapshot, deserializeSnapshot } from "../db/snapshot.js";
+import { buildSnapshotJson, deserializeSnapshot, serializeSnapshot, snapshotDigest } from "../db/snapshot.js";
 import { config } from "../config.js";
 
 /** Build a store with the SplitStream real-user state worth persisting. */
@@ -67,5 +67,24 @@ describe("snapshot codec — real-user state", () => {
     const blob = serializeSnapshot(seedStore());
     config.snapshotEncKey = undefined;
     expect(() => deserializeSnapshot(new Store(), blob)).toThrow(/SNAPSHOT_ENC_KEY/);
+  });
+
+  it("digest is stable while the store is unchanged and moves on mutation (dirty-check basis)", () => {
+    const store = seedStore();
+    const d1 = snapshotDigest(buildSnapshotJson(store));
+    const d2 = snapshotDigest(buildSnapshotJson(store));
+    expect(d2).toBe(d1); // idle ticks compare equal → persistence skips the write
+
+    store.entitlements.add("p1|reader-xyz");
+    const d3 = snapshotDigest(buildSnapshotJson(store));
+    expect(d3).not.toBe(d1); // any durable change flips the digest → write happens
+
+    // A restored store reproduces the same digest, so a restart with no new
+    // activity also skips the first write (encryption IV can't affect this —
+    // the digest is over the plaintext JSON).
+    config.snapshotEncKey = "a-test-secret-key";
+    const restored = new Store();
+    deserializeSnapshot(restored, serializeSnapshot(store));
+    expect(snapshotDigest(buildSnapshotJson(restored))).toBe(d3);
   });
 });

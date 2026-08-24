@@ -10,7 +10,7 @@
  */
 
 import type { Store } from "./store.js";
-import { serializeSnapshot, deserializeSnapshot } from "./snapshot.js";
+import { buildSnapshotJson, deserializeSnapshot, encryptSnapshotJson, snapshotDigest } from "./snapshot.js";
 import { d1ConfigFromEnv, initD1Persistence } from "./d1Persistence.js";
 
 type SqliteDb = {
@@ -32,10 +32,12 @@ async function initSqlitePersistence(store: Store, path: string): Promise<() => 
   db.run("CREATE TABLE IF NOT EXISTS snapshot (id INTEGER PRIMARY KEY, json TEXT NOT NULL)");
 
   // Hydrate from any existing snapshot.
+  let lastSavedDigest: string | undefined;
   try {
     const row = db.query("SELECT json FROM snapshot WHERE id = 1").get() as { json: string } | undefined;
     if (row?.json) {
       deserializeSnapshot(store, row.json);
+      lastSavedDigest = snapshotDigest(buildSnapshotJson(store));
       console.log(
         `[persistence] restored ${store.audit.length} audit entries, ` +
           `${store.tenants.size} tenants from ${path}`,
@@ -47,7 +49,11 @@ async function initSqlitePersistence(store: Store, path: string): Promise<() => 
 
   return () => {
     try {
-      db.query("INSERT OR REPLACE INTO snapshot (id, json) VALUES (1, ?)").run(serializeSnapshot(store));
+      const json = buildSnapshotJson(store);
+      const digest = snapshotDigest(json);
+      if (digest === lastSavedDigest) return; // store unchanged — skip the write
+      db.query("INSERT OR REPLACE INTO snapshot (id, json) VALUES (1, ?)").run(encryptSnapshotJson(json));
+      lastSavedDigest = digest;
     } catch (err) {
       console.warn("[persistence] save failed:", err);
     }
