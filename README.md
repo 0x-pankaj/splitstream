@@ -253,10 +253,36 @@ from the platform relayer** (`0x8984…7154c`, `RELAYER_PRIVATE_KEY`) — only t
 
 In short: a **CLI/MCP agent that uses our tools is sponsored** (we cover it from
 the relayer); a **true x402 agent pays itself** via the `/call` challenge. Because
-sponsored buys spend the relayer's USDC, keep it topped up at
-[faucet.circle.com](https://faucet.circle.com) (Arc Testnet) — the
+sponsored buys spend the relayer's USDC, keep it topped up (see below) — the
 `RELAYER_ALERT_WEBHOOK` pings you when it's low. *(The relayer is also the `payTo`
 where every price lands before the split fans out.)*
+
+#### Topping up the relayer
+
+Two routes, both Arc Testnet:
+
+1. **[faucet.circle.com](https://faucet.circle.com)** — the standard drip.
+2. **`arc-canteen wallet`** — the Canteen CLI generates a fresh keypair funded
+   with **$5 testnet USDC** (written `0600` to `~/.arc-canteen/wallet.yaml`),
+   which you then sweep into the relayer. USDC is the *native gas token* on Arc,
+   so the sweep is a plain value transfer, not an ERC-20 call:
+
+   ```bash
+   export ETH_RPC_URL=$(arc-canteen rpc-url)          # token-embedded Arc RPC
+   cast balance <FAUCET_WALLET>                       # 18dp native, not 6dp ERC-20
+   cast send <RELAYER_ADDRESS> --private-key <FAUCET_WALLET_KEY> \
+     --value <balance − 2× gas> --legacy --gas-price 21000000000 --gas-limit 21000
+   ```
+
+   Reserve ~2× the gas cost (21 000 gas × gas price) so a base-fee bump can't
+   strand the transfer; the leftover dust is a fraction of a cent. Done once
+   already — [`0x46f26f2b…b52ffed7`](https://testnet.arcscan.app/tx/0x46f26f2b638a6502cd3941680af6864f93bf75e098bb1a7cd83262a0b52ffed7)
+   moved `4.999118` USDC in, taking the relayer from `11.03` → **`16.03` USDC**.
+   Confirm with `GET /health` → `relayer.balanceUSDC`.
+
+Sweeping into the *existing* relayer (rather than pointing
+`RELAYER_PRIVATE_KEY` at the new wallet) keeps every on-chain payout attributable
+to one address, so the public traction figures stay continuous.
 
 ### Real settlement on Arc (LIVE_X402)
 
