@@ -107,7 +107,7 @@ platform fee out of the price.
 ## Links
 
 - Live storefront: <https://splitstream-web.vercel.app>
-- Live API (Arc Testnet): <https://splitstream-api-production.up.railway.app> ([`/health`](https://splitstream-api-production.up.railway.app/health))
-- Hosted MCP (agents connect by URL): `https://splitstream-api-production.up.railway.app/mcp`
+- Live API (Arc Testnet): <https://splitstream-api-production-cf6c.up.railway.app> ([`/health`](https://splitstream-api-production-cf6c.up.railway.app/health))
+- Hosted MCP (agents connect by URL): `https://splitstream-api-production-cf6c.up.railway.app/mcp`
 - Demo video (<3 min): _add Loom/YouTube link before submitting_
 - Repo: <https://github.com/0x-pankaj/splitstream>

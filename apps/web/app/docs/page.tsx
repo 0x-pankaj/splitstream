@@ -239,8 +239,8 @@ export default function DocsPage() {
           <section className="space-y-3">
             <H id="buy-mcp">A. Install in your AI (MCP)</H>
             <p className="text-sm text-ink3">Add SplitStream&apos;s <strong>hosted</strong> MCP server to any MCP client (Claude Code, Cursor, …) by <strong>URL — no clone, no install</strong>. Your AI then has tools to browse and pay for the live catalog; the user just talks normally.</p>
-            <Code label="install once — remote, nothing to download">{`claude mcp add --transport http splitstream https://splitstream-api-production.up.railway.app/mcp`}</Code>
-            <p className="text-sm text-muted mt-2">Other clients (Cursor, Windsurf, …): add an HTTP/Streamable MCP server pointing at <code className="mono">https://splitstream-api-production.up.railway.app/mcp</code>.</p>
+            <Code label="install once — remote, nothing to download">{`claude mcp add --transport http splitstream https://splitstream-api-production-cf6c.up.railway.app/mcp`}</Code>
+            <p className="text-sm text-muted mt-2">Other clients (Cursor, Windsurf, …): add an HTTP/Streamable MCP server pointing at <code className="mono">https://splitstream-api-production-cf6c.up.railway.app/mcp</code>.</p>
             <p className="text-sm text-muted mt-2">Tools the agent gains: <code className="mono">list_pieces</code>, <code className="mono">call_api</code>, <code className="mono">pay_for_piece</code> (+ treasury tools).</p>
             <p className="text-sm text-faint mt-2">Local dev alternative (needs the repo + Bun): <code className="mono">claude mcp add splitstream -- bun run apps/server/src/mcp/stdio.ts</code></p>
             <Code label="then the human just asks — the AI discovers + pays">{`User:  "What's the USD→EUR rate right now?"

@@ -83,10 +83,10 @@ no human in the loop. Owner USDC balance went `0 → 0.01` on-chain.
 
 ## Live deployment
 
-- **API (live on Arc Testnet):** <https://splitstream-api-production.up.railway.app>
-  — health: [`/health`](https://splitstream-api-production.up.railway.app/health)
+- **API (live on Arc Testnet):** <https://splitstream-api-production-cf6c.up.railway.app>
+  — health: [`/health`](https://splitstream-api-production-cf6c.up.railway.app/health)
   (`onchainEnabled: true`, `allReal: true`, `circleWallets: true`, chain `5042002`);
-  catalog: [`/api/v1/pieces`](https://splitstream-api-production.up.railway.app/api/v1/pieces).
+  catalog: [`/api/v1/pieces`](https://splitstream-api-production-cf6c.up.railway.app/api/v1/pieces).
   Runs in live Arc mode — every buy path (walletless sponsored unlock, pay-from-
   your-wallet, agent x402, and the reading agent) settles **real USDC on Arc**, and
   creators get **live Circle custodial wallets** they can withdraw from.
@@ -101,7 +101,7 @@ Every `localhost:8787` example below also works against the live API — just sw
 the host. For example:
 
 ```bash
-curl -X POST https://splitstream-api-production.up.railway.app/api/v1/pieces/piece-arc-frontier-001/pay \
+curl -X POST https://splitstream-api-production-cf6c.up.railway.app/api/v1/pieces/piece-arc-frontier-001/pay \
   -H 'content-type: application/json' -d '{"payer":"demo"}'
 ```
 
